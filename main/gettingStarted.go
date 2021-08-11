@@ -1,5 +1,16 @@
 package main
 
+/*
+To run this program, follow the following steps:
+1. Build device-detection-cxx using CMake as described in its README.md
+2. Update the linker option '-L' to point to the location of the built static libraries.
+3. Naviaget to the parent folder, which mean 'cd ..'
+4. Build the executable file using.
+  go build -o [executable file name] ./main
+5. Run the output file.
+  ./[executable file name]
+*/
+
 // #cgo LDFLAGS: -L./device-detection-cxx/build/lib -lfiftyone-hash-c -lfiftyone-device-detection-c -lfiftyone-common-c -lm -latomic
 // #include <string.h>
 // #include "device-detection-cxx/src/hash/hash.h"
