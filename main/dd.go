@@ -16,7 +16,8 @@ To run this program, follow the following steps:
 // #include "device-detection-cxx/src/hash/hash.h"
 // #include "device-detection-cxx/src/hash/fiftyone.h"
 import "C"
-import "fmt"
+import "unsafe"
+import "go/types"
 
 type ResultsHash struct {
 	cptr *C.ResultsHash
@@ -30,85 +31,238 @@ type PropertiesRequired struct {
 	cptr *C.PropertiesRequired
 }
 
+type ResourceManager struct {
+	cptr *C.ResourceManager
+}
+
+type EvidenceKeyValuePairArray struct {
+	cptr *C.EvidenceKeyValuePairArray
+}
+
+type ResultsNoValueReason struct {
+	reason C.fiftyoneDegreesResultsNoValueReason
+}
+
+type Values struct {
+	cptr *C.fiftyoneDegreesCollectionItem
+}
+
+type DataSetHash struct {
+	cptr *C.DataSetHash
+}
+
+type ResultHash struct {
+	cptr *C.ResultHash
+}
+
+type EvidenceKeyValuePair struct {
+	cptr *C.EvidenceKeyValuePair
+}
+
+type MemoryReader struct {
+	cptr *C.MemoryReader
+}
+
+type EvidencePrefix int
+const (
+	httpHeaderString EvidencePrefix = 1 << iota
+	httpIpAddresses = 1 << iota
+	httpEvidenceServer = 1 << iota
+	httpEvidenceQuery = 1 << iota
+	httpEvidenceCookie = 1 << iota
+	httpEvidenceIgnore = 1 << 7
+)
+
+type Property struct {
+	cptr *C.Property
+}
+
+type PropertiesAvailable struct {
+	cptr *C.PropertiesAvailable
+}
+
+type Properties struct {
+	cptr *C.fiftyoneDegreesCollection
+}
+
 func FiftyoneDegreesResultsHashGetValuesString (
 	result ResultsHash,
 	propertyName string,
-	buffer []byte,
-	separator string) uint64, error {}
+	buffer unsafe.Pointer,
+	size uint64,
+	separator string) (s uint64, err error) {
+	return 0, nil
+}
 
 func FiftyoneDegreeshashSizeManagerFromFile (
 	config ConfigHash,
 	properties PropertiesRequired,
+	fileName string) (size uint64, err error) {
+	return 0, nil
+}
+	
+func FiftyoneDegreeshashSizeManagerFromMemory (
+	config ConfigHash,
+	properties PropertiesRequired,
+	memory unsafe.Pointer,
+	size uint64) (s uint64, err error) {
+	return 0, nil
+}
+
+func FiftyoneDegreesHashInitManagerFromFile (
+	manager ResourceManager,
+	config ConfigHash,
+	properties PropertiesRequired,
+	fileName string) error {
+	return nil
+}
+
+func FiftyoneDegreesHashInitManagerFromMemory (
+	manager ResourceManager,
+	config ConfigHash,
+	properties PropertiesRequired,
+	memory unsafe.Pointer,
+	size uint64) error {
+	return nil
+}
+
+func FiftyoneDegreesResultsHashCreate (
+	manager ResourceManager,
+	uaCapacity uint64,
+	overridesCapacity uint64) ResultsHash {
+	return ResultsHash{nil}
+}
+
+func FiftyoneDegreesResultsHashFree (
+	results ResultsHash) {}
+
+func FiftyoneDegreesResultsHashFromUserAgent (
+	results ResultsHash,
+	userAgent string,
+	evidence EvidenceKeyValuePairArray) error {
+	return nil
+}
+
+func FiftyoneDegreesResultsHashFromEvidence (
+	results ResultsHash,
+	evidence EvidenceKeyValuePairArray) error {
+	return nil
+}
+
+func FiftyoneDegreesResultsHashFromDeviceId (
+	results ResultsHash,
+	deviceId string) error {
+	return nil
+}
+
+func FiftyoneDegreesResultsHashGetHasValues (
+	results ResultsHash,
+	requiredPropertyIndex int) (r bool, err error) {
+	return false, nil
+}
+
+func FiftyoneDegreesResultsNoValueReason (
+	results ResultsHash,
+	requiredPropertyIndex int) (r ResultsNoValueReason, err error) {
+	return ResultsNoValueReason{0}, nil
+}
+
+func FiftyoneDegreesResultsHashGetNoValueReasonMessage (
+	reason ResultsNoValueReason) string {
+	return ""
+}
+
+func FiftyoneDegreesResultsHashGetValues (
+	results ResultsHash,
+	requiredPropertyIndex int) (vs Values, err error) {
+	return Values{nil}, nil
+}
+
+func FiftyoneDegreesResourceManagerFree (
+	manager ResourceManager) {}
+
+func FiftyoneDegreesHashGetDeviceIdFromResults (
+	results ResultsHash,
+	destination unsafe.Pointer,
+	size uint64) (id string, err error) {
+	return "", nil
+}
+
+func FiftyoneDegreesHashGetDeviceIdFromResult (
+	dataSet DataSetHash,
+	result ResultHash,
+	destination unsafe.Pointer,
+	size uint64) (id string, err error) {
+	return "", nil
+}
+
+func FiftyoneDegreesEvidenceCreate (
+	capacity uint32) EvidenceKeyValuePairArray {
+	return EvidenceKeyValuePairArray{nil}
+}
+
+func FiftyoneDegreesEvidenceFree (
+	evidence EvidenceKeyValuePairArray) {}
+
+func FiftyoneDegreesEvidenceAddString (
+	evidence EvidenceKeyValuePairArray,
+	prefix EvidencePrefix,
+	field string,
+	originalValue string) EvidenceKeyValuePair {
+	return EvidenceKeyValuePair{nil}
+}
+
+func FiftyoneDegreesHashReloadManagerFromOriginalFile (
+	manager ResourceManager) error {
+	return nil
+}
+
+func FiftyoneDegreesHashReloadManagerFromFile (
+	manager ResourceManager,
+	fileName string) error {
+	return nil
+}
+
+func FiftyoneDegreesHashReloadManagerFromMemory (
+	manager ResourceManager,
+	source unsafe.Pointer,
+	length uint64) error {
+	return nil
+}
+
+func FiftyoneDegreesFileReadToByteArray (
 	fileName string,
-) uint64, error
+	reader MemoryReader) error {
+	return nil
+}
 
-FiftyoneDegreesHashInitManagerFromFile
-FiftyoneDegreesHashInitManagerFromMemory
-FiftyoneDegreesResultsHashCreate
-FiftyoneDegreesResultsHashFromUserAgent
-FiftyoneDegreesResultsHashFromEvidence
-FiftyoneDegreesResultsHashFree
-FiftyoneDegreesResultsNoValueReason
-FiftyoneDegreesResultsHashGetNoValueReasonMessage
-FiftyoneDegreesResourceManagerFree
-FiftyoneDegreesHashGetDeviceIdFromResults
-FiftyoneDegreesHashGetDeviceIdFromResult
-FiftyoneDegreesResultsHashFromDeviceId
-FiftyoneDegreesResultsHashGetValues
-FiftyoneDegreesResultsHashGetHasValues
-FiftyoneDegreesEvidenceCreate
-FiftyoneDegreesEvidenceFree
-FiftyoneDegreesEvidenceAddString
-FiftyoneDegreesHashReloadManagerFromOriginalFile
-FiftyoneDegreesHashReloadManagerFromMemory
-FiftyoneDegreesHashReloadManagerFromFile
-FiftyoneDegreesFileReadToByteArray
-FiftyoneDegreesPropertyGetByName
-FiftyoneDegreesPropertiesGetRequiredPropertyIndexFromName
-FiftyoneDegreesDataSetHashGet
-FiftyoneDegreesDataSetHashRelease
-FiftyoneDegreesPropertyGetValueType
-FiftyoneDegreesGetResponseHeaders
+func FiftyoneDegreesPropertyGetByName (
+	dataSet *DataSetHash,
+	propertyName string) (p Property, err error) {
+	return Property{nil}, nil
+}
 
-func main() {
-	var m C.ResourceManager
-    ps := C.PropertiesDefault
-    ch := C.HashDefaultConfig
-    p := C.CString("/home/fiftyonedegrees/staff/tung/device-detection-go/main/device-detection-cxx/device-detection-data/51Degrees-LiteV4.1.hash")
-    var e *C.fiftyoneDegreesException
-    e = nil
-    s, err := C.HashInitManagerFromFile(
-        &m,
-        &ch,
-        &ps,
-        p,
-        e)
-    if err != nil {
-       fmt.Errorf("%v", err)
-    }
+func FiftyoneDegreesPropertiesGetRequiredPropertyIndexFromName (
+	available PropertiesAvailable,
+	propertyName string) int {
+	return 0
+}
 
-    if s == 1 {
-       fmt.Printf("Do something")
-    }
+func FiftyoneDegreesDataSetHashGet (
+	manager ResourceManager) DataSetHash {
+	return DataSetHash{nil}
+}
 
-    r := C.ResultsHashCreate(&m, 1, 0)
-    ua := C.CString("Mozilla/5.0 (iPhone; CPU iPhone OS 7_1 like Mac OS X) AppleWebKit/537.51.2 (KHTML, like Gecko) Version/7.0 Mobile/11D167 Safari/9537.53")
-    C.ResultsHashFromUserAgent(
-        r,
-        ua,
-        C.strlen(ua),
-        e)
+func FiftyoneDegreesDataSetHashRelease (
+	dataSet DataSetHash) {}
 
-    var b [100]C.char
-    C.ResultsHashGetValuesString(
-       r,
-       C.CString("IsMobile"),
-       &b[0],
-       100,
-       C.CString(","),
-       e)
-    fmt.Printf("%s\n", C.GoString(&b[0]))
+func FiftyoneDegreesPropertyGetValueType (
+	properites Properties,
+	index uint32) (t types.Type, err error) {
+	return nil, nil
+}
 
-    C.ResultsHashFree(r)
-    C.ResourceManagerFree(&m)
+func FiftyoneDegreesGetResponseHeaders (
+	results ResultsHash) (headers map[string]string, err error) {
+	return nil, nil
 }
