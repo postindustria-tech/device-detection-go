@@ -11,10 +11,10 @@ To run this program, follow the following steps:
   ./[executable file name]
 */
 
-// #cgo LDFLAGS: -L./device-detection-cxx/build/lib -lfiftyone-hash-c -lfiftyone-device-detection-c -lfiftyone-common-c -lm -latomic
+// #cgo LDFLAGS: -L../../ddonpremise/device-detection-cxx/build/lib -lfiftyone-hash-c -lfiftyone-device-detection-c -lfiftyone-common-c -lm -latomic
 // #include <string.h>
-// #include "device-detection-cxx/src/hash/hash.h"
-// #include "device-detection-cxx/src/hash/fiftyone.h"
+// #include "../../ddonpremise/device-detection-cxx/src/hash/hash.h"
+// #include "../../ddonpremise/device-detection-cxx/src/hash/fiftyone.h"
 import "C"
 import "fmt"
 
@@ -22,7 +22,7 @@ func main() {
 	var m C.ResourceManager
     ps := C.PropertiesDefault
     ch := C.HashDefaultConfig
-    p := C.CString("/home/fiftyonedegrees/staff/tung/device-detection-go/main/device-detection-cxx/device-detection-data/51Degrees-LiteV4.1.hash")
+    p := C.CString("/home/fiftyonedegrees/staff/tung/device-detection-go/ddonpremise/device-detection-cxx/device-detection-data/51Degrees-LiteV4.1.hash")
     var e *C.fiftyoneDegreesException
     e = nil
     s, err := C.HashInitManagerFromFile(
