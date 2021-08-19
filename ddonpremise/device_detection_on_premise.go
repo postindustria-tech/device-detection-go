@@ -1,4 +1,4 @@
-package main
+package ddonpremise
 
 /*
 To run this program, follow the following steps:
