@@ -16,51 +16,71 @@ To run this program, follow the following steps:
 // #include "device-detection-cxx/src/hash/hash.h"
 // #include "device-detection-cxx/src/hash/fiftyone.h"
 import "C"
+import "fmt"
 import "unsafe"
 import "go/types"
 
 type ResultsHash struct {
-	cptr *C.ResultsHash
+	CPtr *C.ResultsHash
 }
 
 type ConfigHash struct {
-	cptr *C.ConfigHash
+	CPtr *C.ConfigHash
+}
+
+// NewConfigHash returns a new ConfigHash object
+func NewConfigHash() ConfigHash {
+	config := C.HashDefaultConfig
+	return ConfigHash{&config}
 }
 
 type PropertiesRequired struct {
-	cptr *C.PropertiesRequired
+	CPtr *C.PropertiesRequired
+}
+
+func NewPropertiesRequired(
+	properties string) PropertiesRequired {
+	// Create C properties required
+	props := C.PropertiesDefault
+	props.string = C.CString(properties)
+	return PropertiesRequired{&props}
 }
 
 type ResourceManager struct {
-	cptr *C.ResourceManager
+	CPtr *C.ResourceManager
+}
+
+func NewResourceManager() ResourceManager {
+	manager := new(C.ResourceManager)
+	return ResourceManager{manager}
 }
 
 type EvidenceKeyValuePairArray struct {
-	cptr *C.EvidenceKeyValuePairArray
+	CPtr *C.EvidenceKeyValuePairArray
 }
 
 type ResultsNoValueReason struct {
-	reason C.fiftyoneDegreesResultsNoValueReason
+	Reason C.fiftyoneDegreesResultsNoValueReason
 }
 
 type Values struct {
-	cptr *C.fiftyoneDegreesCollectionItem
+	CPtr *C.fiftyoneDegreesCollectionItem
 }
 
 type DataSetHash struct {
-	cptr *C.DataSetHash
+	CPtr *C.DataSetHash
 }
 
 type ResultHash struct {
-	cptr *C.ResultHash
+	CPtr *C.ResultHash
 }
 
 type EvidenceKeyValuePair struct {
-	cptr *C.EvidenceKeyValuePair
+	CPtr *C.EvidenceKeyValuePair
 }
 
 type MemoryReader struct {
-	cptr *C.MemoryReader
+	CPtr *C.MemoryReader
 }
 
 type EvidencePrefix int
@@ -74,7 +94,7 @@ const (
 )
 
 type Property struct {
-	cptr *C.Property
+	CPtr *C.Property
 }
 
 type PropertiesAvailable struct {
@@ -82,16 +102,35 @@ type PropertiesAvailable struct {
 }
 
 type Properties struct {
-	cptr *C.fiftyoneDegreesCollection
+	CPtr *C.fiftyoneDegreesCollection
 }
 
 func FiftyoneDegreesResultsHashGetValuesString (
-	result ResultsHash,
+	results ResultsHash,
 	propertyName string,
-	buffer unsafe.Pointer,
 	size uint64,
-	separator string) (s uint64, err error) {
-	return 0, nil
+	separator string) (value string, s uint64, err error) {
+	// Create slice based on specified size
+	buffer := make([]C.char, size)
+	var e *C.Exception = nil
+	actualSize, err := C.ResultsHashGetValuesString (
+		results.CPtr,
+		C.CString(propertyName),
+		&buffer[0],
+		C.ulong(size),
+		C.CString(separator),
+		e)
+	// Check err
+	if err != nil {
+		return "", uint64(actualSize), err
+	}
+
+	// Check exception
+	if e != nil {
+		return "", uint64(actualSize), fmt.Errorf(C.GoString(C.ExceptionGetMessage(e)))
+	}
+
+	return C.GoString(&buffer[0]), uint64(actualSize), nil
 }
 
 func FiftyoneDegreeshashSizeManagerFromFile (
@@ -114,6 +153,28 @@ func FiftyoneDegreesHashInitManagerFromFile (
 	config ConfigHash,
 	properties PropertiesRequired,
 	fileName string) error {
+	var e *C.Exception = nil
+	s, err := C.HashInitManagerFromFile(
+		manager.CPtr,
+		config.CPtr,
+		properties.CPtr,
+		C.CString(fileName),
+		e)
+	// Check err
+	if err != nil {
+		return err
+	}
+
+	// Check status code
+	if s != C.FIFTYONE_DEGREES_STATUS_SUCCESS {
+		return fmt.Errorf(C.GoString(C.StatusGetMessage(s, C.CString(fileName))))
+	}
+
+	// Check exception
+	if e != nil {
+		return fmt.Errorf(C.GoString(C.ExceptionGetMessage(e)))
+	}
+
 	return nil
 }
 
@@ -128,18 +189,44 @@ func FiftyoneDegreesHashInitManagerFromMemory (
 
 func FiftyoneDegreesResultsHashCreate (
 	manager ResourceManager,
-	uaCapacity uint64,
-	overridesCapacity uint64) ResultsHash {
-	return ResultsHash{nil}
+	uaCapacity uint32,
+	overridesCapacity uint32) (results ResultsHash, err error) {
+	r, err := C.ResultsHashCreate(
+		manager.CPtr,
+		C.uint(uaCapacity),
+		C.uint(overridesCapacity))
+	if err != nil {
+		return ResultsHash{nil}, err
+	}
+	return ResultsHash{r}, nil
 }
 
 func FiftyoneDegreesResultsHashFree (
-	results ResultsHash) {}
+	results ResultsHash) error {
+	_, err := C.ResultsHashFree(results.CPtr)
+	return err
+}
 
 func FiftyoneDegreesResultsHashFromUserAgent (
 	results ResultsHash,
-	userAgent string,
-	evidence EvidenceKeyValuePairArray) error {
+	userAgent string) error {
+	cUserAgent := C.CString(userAgent)
+	var e *C.Exception = nil
+	_, err := C.ResultsHashFromUserAgent(
+		results.CPtr,
+		cUserAgent,
+		C.strlen(cUserAgent),
+		e)
+	// Check error
+	if err != nil {
+		return err
+	}
+
+	// Check exception
+	if e != nil {
+		return fmt.Errorf(C.GoString(C.ExceptionGetMessage(e)))
+	}
+		
 	return nil
 }
 
@@ -179,7 +266,10 @@ func FiftyoneDegreesResultsHashGetValues (
 }
 
 func FiftyoneDegreesResourceManagerFree (
-	manager ResourceManager) {}
+	manager ResourceManager) error {
+	_, err := C.ResourceManagerFree(manager.CPtr)
+	return err
+}
 
 func FiftyoneDegreesHashGetDeviceIdFromResults (
 	results ResultsHash,
