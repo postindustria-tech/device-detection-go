@@ -20,6 +20,17 @@ import "fmt"
 import "unsafe"
 import "go/types"
 
+type PerformanceProfile int
+
+const (
+	PerfDefault PerformanceProfile = iota
+	PerfLowMemory
+	PerfBalancedTemp
+	PerfBalanced
+	PerfHighPerformance
+	PerfInMemory
+)
+
 type ResultsHash struct {
 	CPtr *C.ResultsHash
 }
