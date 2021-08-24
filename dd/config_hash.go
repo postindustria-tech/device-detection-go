@@ -1,10 +1,11 @@
-package ddonpremise
+package dd
 
 // #cgo LDFLAGS: -L./device-detection-cxx/build/lib -lfiftyone-hash-c -lfiftyone-device-detection-c -lfiftyone-common-c -lm -latomic
 // #include <string.h>
-// #include "device-detection-cxx/src/hash/hash.h"
-// #include "device-detection-cxx/src/hash/fiftyone.h"
+// #include "./device-detection-cxx/src/hash/hash.h"
+// #include "./device-detection-cxx/src/hash/fiftyone.h"
 import "C"
+import "unsafe"
 
 // Performance Profile
 type PerformanceProfile int
@@ -20,6 +21,12 @@ const (
 // ConfigHash wraps around pointer to a value of C ConfigHash structure
 type ConfigHash struct {
 	CPtr *C.ConfigHash
+}
+
+/* Constructor and Destructor */
+func NewConfigHash() ConfigHash {
+	config := C.HashDefaultConfig
+	return ConfigHash{&config}
 }
 
 /* Setters */
@@ -97,4 +104,28 @@ func (config *ConfigHash) GetTraceRoute() bool {
 // considered when evaluating HTTP hreaders.
 func (config *ConfigHash) GetUseUpperPrefixHeaders() bool {
 	return false
+}
+
+/* Sizer */
+
+// SizeManagerFromFile returns the size of the memory which will be used for
+// holding a resource manager based on a given file. The input properties is a
+// comma separated string list. This matches the C API
+// fiftyoneDegreeshashSizeManagerFromFile.
+func (config *ConfigHash) SizeManagerFromFile(
+	properties string,
+	fileName string) (size uint64, err error) {
+	return 0, nil
+}
+
+// SizeManagerFromMemory returns the size of the memory which will be used for
+// holding a resource manager based on a given memory. The given memory holds
+// a data file content that is intended to initialize the resource amanger. The
+// properties is a comma separated string list. This matches the C API
+// fiftyoneDegreeshashSizeManagerFromMemory.
+func (config *ConfigHash) SizeManagerFromMemory(
+	properties string,
+	memory unsafe.Pointer,
+	size uint64) (s uint64, err error) {
+	return 0, nil
 }

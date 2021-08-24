@@ -1,35 +1,29 @@
-package ddonpremise_test
+package dd_test
 
 /*
-To run this program, follow the following steps:
-1. Build device-detection-cxx using CMake as described in its README.md
-2. Update the linker option '-L' to point to the location of the built static libraries.
-3. Naviaget to the parent folder, which mean 'cd ..'
-4. Build the executable file using.
-  go build -o [executable file name] ./main
-5. Run the output file.
-  ./[executable file name]
+This example illustrates how to perform simple device detections on given
+User-Agent strings.
 */
 
-import "fmt"
-import "github.com/51Degrees/device-detection-go/ddonpremise"
+import (
+	"fmt"
+
+	"github.com/51Degrees/device-detection-go/dd"
+)
 
 // function match performs a match on an input User-Agent string and determine
 // if the device is a mobile device.
 func match(
-	results ddonpremise.ResultsHash,
+	results dd.ResultsHash,
 	ua string) {
 	// Perform detection
-	err := ddonpremise.FiftyoneDegreesResultsHashFromUserAgent(
-		results,
-		ua)
+	err := results.MatchUserAgent(ua)
 	if err != nil {
 		panic(err)
 	}
 
 	// Get the values in string
-	value, _, err := ddonpremise.FiftyoneDegreesResultsHashGetValuesString(
-		results,
+	value, _, err := results.GetValuesString(
 		"IsMobile",
 		100,
 		",")
@@ -42,28 +36,42 @@ func match(
 
 func Example() {
 	// Initialise manager
-	manager := ddonpremise.NewResourceManager()
-	props := ddonpremise.NewPropertiesRequired("")
-	config := ddonpremise.NewConfigHash()
-	filePath := "../../ddonpremise/device-detection-cxx/device-detection-data/51Degrees-LiteV4.1.hash"
-	err := ddonpremise.FiftyoneDegreesHashInitManagerFromFile(
+	manager := dd.NewResourceManager()
+	config := dd.NewConfigHash()
+	filePath := "../../dd/device-detection-cxx/device-detection-data/51Degrees-LiteV4.1.hash"
+	err := dd.InitManagerFromFile(
 		manager,
 		config,
-		props,
+		"",
 		filePath)
 	if err != nil {
 		panic(err)
 	}
 
-	
+	// Make sure manager object will be freed after the function execution
+	defer func() {
+		err := manager.Free()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	// Create results
-	results, err := ddonpremise.FiftyoneDegreesResultsHashCreate(
+	results, err := dd.NewResultsHash(
 		manager,
 		1,
 		0)
 	if err != nil {
 		panic(err)
 	}
+
+	// Make sure results object is freed after function execution.
+	defer func() {
+		err = results.Free()
+		if err != nil {
+			panic(err)
+		}
+	}()
 
 	// User-Agent string of an iPhone mobile device.
 	const uaMobile = "Mozilla/5.0 (iPhone; CPU iPhone OS 7_1 like Mac OS X) " +
@@ -90,17 +98,6 @@ func Example() {
 	// Perform detection on MediaHub User-Agent
 	fmt.Printf("\nMediaHub User-Agent: %s\n", uaMediaHub)
 	match(results, uaMediaHub)
-
-	// Free allocated resources
-	err = ddonpremise.FiftyoneDegreesResultsHashFree(results)
-	if err != nil {
-		panic(err)
-	}
-
-	err = ddonpremise.FiftyoneDegreesResourceManagerFree(manager)
-	if err != nil {
-		panic(err)
-	}
 
 	// Output:
 	// Mobile User-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 7_1 like Mac OS X) AppleWebKit/537.51.2 (KHTML, like Gecko) Version/7.0 Mobile/11D167 Safari/9537.53
