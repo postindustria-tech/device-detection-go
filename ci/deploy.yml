@@ -27,4 +27,4 @@ stages:
 - template: shared-publish-github-stage.yml@ciTemplates
   parameters:
     imageName: $(linuxImage)
-    branchName: 'refs/heads/master'
+    branchName: 'refs/heads/main'

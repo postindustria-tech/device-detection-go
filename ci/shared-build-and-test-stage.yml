@@ -1,4 +1,8 @@
-# Template for build and test stage, which tests api on specified agent for different versions of php.
+# Template for build and test stage, which tests api on specified agent
+parameters:
+- name: runTests
+  type: string
+  default: 'On'
 
 stages:
 - stage: Build_and_Test
@@ -6,6 +10,7 @@ stages:
   jobs:
     - job: Build_and_Test
       displayName: Build and Test
+      condition: ne(${{ parameters.runTests }}, 'Off')
 
       variables: 
         - group: InternalKeys
@@ -27,6 +32,26 @@ stages:
         persistCredentials: true
 
       # Install any pre-requisites
+      - script: |
+          sudo apt-get -y install \
+            gcc-multilib \
+            g++-multilib        
+        displayName: 'Install Required Packages'
+      
+      #- script: |
+      #    wget http://ftp.br.debian.org/debian/pool/main/d/dmalloc/libdmalloc-dev_5.5.2-6_i386.deb
+      #    sudo dpkg --add-architecture i386
+      #    sudo apt-get -y update
+      #    sudo dpkg -i libdmalloc-dev_5.5.2-6_i386.deb
+      #    sudo sudo apt-get -y install -f
+      #  displayName: 'Install Required 32bit Packages'
+      #  condition: and(succeeded(), eq(variables['BuildPlatform'], 'x86'))
+      
+      - script: |
+          sudo apt-get -y install libdmalloc-dev
+        displayName: 'Install Required 64bit Packages'
+        # condition: and(succeeded(), eq(variables['BuildPlatform'], 'x64'))
+        failOnStderr: true
 
       # Set up the build and test environment
 

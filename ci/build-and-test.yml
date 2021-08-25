@@ -14,3 +14,10 @@ variables:
 
 stages:
 - template: shared-build-and-test-stage.yml
+  runTests: variables['RunTests']
+
+# Try to complete the corresponding pull request if
+# this is triggered by one.    
+- template: shared-auto-complete-pr-stage.yml@ciTemplates
+  parameters:
+    stageDependencies: [Build_and_Test]
