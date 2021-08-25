@@ -1,10 +1,18 @@
 # 51Degrees Device Detection Golang API
+## Pre-requisites
+To build and use 51Degrees device detection for Golang, the following are required:
+- Powershell
+- CMake 4.10 or above
+- Gcc
+- Go
+
 ## Build and Run
 To run device-detection-go onpremise, the core engine binaries are required to
 be built first. To do this, make sure the following utilities are available are
 installed on your chosen platforms:
 - Powershell
-- CMake
+- CMake 3.10 or above
+- Gcc (Use MinGW-W64 if on Windows)
 
 Then run `prebuild.ps1` as located in `ddonpremise/scripts` folder.
 
