@@ -23,6 +23,7 @@ stages:
 - template: shared-build-and-test-stage.yml
   parameters:
     macImage: $(macImage)
+    windowsImage: $(windowsImage)
     runTests: variables['RunTests']
 
 # Try to complete the corresponding pull request if

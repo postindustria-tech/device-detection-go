@@ -1,6 +1,7 @@
 # Template for build and test stage, which tests api on specified agent
 parameters:
 - name: macImage
+- name: windowsImage
 - name: runTests
   type: string
   default: 'On'
@@ -125,6 +126,10 @@ stages:
         failOnStderr: true
 
       # Set up the build and test environment
+      - bash: |
+          export CC=gcc
+          export CXX=g++
+        displayName: 'Set compiler to be gcc and g++'
 
       # Run prebuild
       - powershell: |
@@ -147,21 +152,49 @@ stages:
       #    failTaskOnFailedTests: true
       #  condition: always()
   
-      # Build performance tests
-      #- script: |
-      #    cd performance-tests
-      #    sudo apt-get install cmake apache2-dev libapr1-dev libaprutil1-dev
-      #    mkdir build
-      #    cd build
-      #    cmake ..
-      #    cmake --build .
-      #    cd ..
-      #  displayName: 'Build Performance Tests'
+- stage: Windows
+  dependsOn: []
 
-      # Run performance tests
-      #- script: |
-      #    cd performance-tests/build
-      #    ./runPerf.sh
-      #    cd ..
-      #  displayName: 'Run Performance Tests'
-      #  failOnStderr: true
+  jobs:
+    - job: Build_and_Test
+      displayName: Build and Test
+      condition: ne(${{ parameters.runTests }}, 'Off')
+
+      variables: 
+        - group: InternalKeys
+
+      pool:
+        vmImage: ${{ parameters.windowsImage }}
+
+      steps:
+      - checkout: self
+        submodules: recursive
+        lfs: true
+        persistCredentials: true
+
+      # Set up the build and test environment
+      - bash: |
+          export CC=gcc
+          export CXX=g++
+        displayName: 'Set compiler to be gcc and g++'
+
+      # Run prebuild
+      - powershell: |
+          ./dd/scripts/prebuild.ps1
+        displayName: 'Build device detection core binaries'
+
+      # Run test
+      - bash: |
+          go test ./dd
+        displayName: 'Run tests'
+        
+      # Publish Test Results to Azure Pipelines/TFS
+      #- task: PublishTestResults@2
+      #  inputs:
+      #    testRunner: 'JUnit'
+      #    testResultsFiles: '**/test-results.xml'
+      #    searchFolder: '$(System.DefaultWorkingDirectory)'
+      #    mergeTestResults: false
+      #    testRunTitle: '$(phpVersion)'
+      #    failTaskOnFailedTests: true
+      #  condition: always()
