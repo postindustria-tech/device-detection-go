@@ -64,17 +64,19 @@ if  (Test-Path -path ./build) {
 Push-Location ./build
 
 # Run CMake configure
-if ($IsWindows) {
-    # If on windows make the generator to create MinGW Makefiles
-    $args = '-G "MinGW Makefiles"'
+if ($IsLinux) {
+    cmake .. -DCMAKE_BUILD_TYPE=Release
+} elseif ($IsMacOS) {
+    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release
+} elseif ($IsWindows) {
+    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -G "MSYS Makefiles"
+} else {
+    Write-Host "# ERROR: Not supported platform. Exit."
+    Pop-Location
+    Pop-Location
+    Exit
 }
 
-# If running on MacOS, make CMake to use gcc and g++
-if ($IsMacOS) {
-    $args = '-DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ ' + $args
-}
-
-cmake .. $args
 if (!$?) {
     Write-Host "# ERROR: Failed to create Makefiles. Exit."
     Pop-Location
