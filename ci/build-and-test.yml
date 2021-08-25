@@ -12,6 +12,13 @@ schedules:
 variables:
 - template: shared-variables.yml
 
+# Add the common-ci git repo as a resource to access common templates.
+resources:
+  repositories:
+  - repository: ciTemplates # Id of the repository used to reference to in this script
+    type: git
+    name: common-ci # Name of the actual repository
+
 stages:
 - template: shared-build-and-test-stage.yml
   parameters:
