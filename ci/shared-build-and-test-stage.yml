@@ -7,11 +7,11 @@ parameters:
 
 stages:
 - stage: Linux
+  dependsOn: []
 
   jobs:
     - job: Build_and_Test
       displayName: Build and Test
-      dependsOn: []
       condition: ne(${{ parameters.runTests }}, 'Off')
 
       variables: 
@@ -98,11 +98,11 @@ stages:
       #  failOnStderr: true
 
 - stage: MacOS
+  dependsOn: []
 
   jobs:
     - job: Build_and_Test
       displayName: Build and Test
-      dependsOn: []
       condition: ne(${{ parameters.runTests }}, 'Off')
 
       variables: 
