@@ -1,0 +1,71 @@
+# Template for build and test stage, which tests api on specified agent for different versions of php.
+
+stages:
+- stage: Build_and_Test
+
+  jobs:
+    - job: Build_and_Test
+      displayName: Build and Test
+
+      variables: 
+        - group: InternalKeys
+
+      strategy:
+        matrix:
+          Ubuntu 18:
+            imageName: 'ubuntu-18.04'
+          Ubuntu 20:
+            imageName: 'ubuntu-20.04'
+
+      pool:
+        vmImage: $(imageName)
+
+      steps:
+      - checkout: self
+        submodules: recursive
+        lfs: true
+        persistCredentials: true
+
+      # Install any pre-requisites
+
+      # Set up the build and test environment
+
+      # Run prebuild
+      - powershell: |
+          ./dd/scripts/prebuild.ps1
+        displayName: 'Build device detection core binaries'
+
+      # Run test
+      - bash: |
+          go test ./dd
+        displayName: 'Run tests'
+        
+      # Publish Test Results to Azure Pipelines/TFS
+      #- task: PublishTestResults@2
+      #  inputs:
+      #    testRunner: 'JUnit'
+      #    testResultsFiles: '**/test-results.xml'
+      #    searchFolder: '$(System.DefaultWorkingDirectory)'
+      #    mergeTestResults: false
+      #    testRunTitle: '$(phpVersion)'
+      #    failTaskOnFailedTests: true
+      #  condition: always()
+  
+      # Build performance tests
+      #- script: |
+      #    cd performance-tests
+      #    sudo apt-get install cmake apache2-dev libapr1-dev libaprutil1-dev
+      #    mkdir build
+      #    cd build
+      #    cmake ..
+      #    cmake --build .
+      #    cd ..
+      #  displayName: 'Build Performance Tests'
+
+      # Run performance tests
+      #- script: |
+      #    cd performance-tests/build
+      #    ./runPerf.sh
+      #    cd ..
+      #  displayName: 'Run Performance Tests'
+      #  failOnStderr: true
