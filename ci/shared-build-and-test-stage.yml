@@ -1,15 +1,17 @@
 # Template for build and test stage, which tests api on specified agent
 parameters:
+- name: macImage
 - name: runTests
   type: string
   default: 'On'
 
 stages:
-- stage: Build_and_Test
+- stage: Linux
 
   jobs:
     - job: Build_and_Test
       displayName: Build and Test
+      dependsOn: []
       condition: ne(${{ parameters.runTests }}, 'Off')
 
       variables: 
@@ -51,6 +53,75 @@ stages:
           sudo apt-get -y install libdmalloc-dev
         displayName: 'Install Required 64bit Packages'
         # condition: and(succeeded(), eq(variables['BuildPlatform'], 'x64'))
+        failOnStderr: true
+
+      # Set up the build and test environment
+
+      # Run prebuild
+      - powershell: |
+          ./dd/scripts/prebuild.ps1
+        displayName: 'Build device detection core binaries'
+
+      # Run test
+      - bash: |
+          go test ./dd
+        displayName: 'Run tests'
+        
+      # Publish Test Results to Azure Pipelines/TFS
+      #- task: PublishTestResults@2
+      #  inputs:
+      #    testRunner: 'JUnit'
+      #    testResultsFiles: '**/test-results.xml'
+      #    searchFolder: '$(System.DefaultWorkingDirectory)'
+      #    mergeTestResults: false
+      #    testRunTitle: '$(phpVersion)'
+      #    failTaskOnFailedTests: true
+      #  condition: always()
+  
+      # Build performance tests
+      #- script: |
+      #    cd performance-tests
+      #    sudo apt-get install cmake apache2-dev libapr1-dev libaprutil1-dev
+      #    mkdir build
+      #    cd build
+      #    cmake ..
+      #    cmake --build .
+      #    cd ..
+      #  displayName: 'Build Performance Tests'
+
+      # Run performance tests
+      #- script: |
+      #    cd performance-tests/build
+      #    ./runPerf.sh
+      #    cd ..
+      #  displayName: 'Run Performance Tests'
+      #  failOnStderr: true
+
+- stage: MacOS
+
+  jobs:
+    - job: Build_and_Test
+      displayName: Build and Test
+      dependsOn: []
+      condition: ne(${{ parameters.runTests }}, 'Off')
+
+      variables: 
+        - group: InternalKeys
+
+      pool:
+        vmImage: ${{ parameters.macImage }}
+
+      steps:
+      - checkout: self
+        submodules: recursive
+        lfs: true
+        persistCredentials: true
+
+      # Install any pre-requisites
+      - script: |
+          brew search dmalloc
+          brew install dmalloc
+        displayName: 'Install Required Packages'
         failOnStderr: true
 
       # Set up the build and test environment

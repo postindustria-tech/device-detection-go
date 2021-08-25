@@ -28,4 +28,4 @@ stages:
 # this is triggered by one.    
 - template: shared-auto-complete-pr-stage.yml@ciTemplates
   parameters:
-    stageDependencies: [Build_and_Test]
+    stageDependencies: [Linux,MacOS]
