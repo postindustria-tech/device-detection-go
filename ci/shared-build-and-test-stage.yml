@@ -126,18 +126,18 @@ stages:
         failOnStderr: true
 
       # Set up the build and test environment
-      - bash: |
-          export CC=gcc
-          export CXX=g++
-        displayName: 'Set compiler to be gcc and g++'
 
       # Run prebuild
       - powershell: |
+          $Env:CC=gcc
+          $Env:CXX=g++
           ./dd/scripts/prebuild.ps1
         displayName: 'Build device detection core binaries'
 
       # Run test
       - bash: |
+          export CC=gcc
+          export CXX=g++
           go test ./dd
         displayName: 'Run tests'
         
@@ -173,18 +173,18 @@ stages:
         persistCredentials: true
 
       # Set up the build and test environment
-      - bash: |
-          export CC=gcc
-          export CXX=g++
-        displayName: 'Set compiler to be gcc and g++'
 
       # Run prebuild
       - powershell: |
+          $Env:CC=gcc
+          $Env:CXX=g++
           ./dd/scripts/prebuild.ps1
         displayName: 'Build device detection core binaries'
 
       # Run test
       - bash: |
+          export CC=gcc
+          export CXX=g++
           go test ./dd
         displayName: 'Run tests'
         
