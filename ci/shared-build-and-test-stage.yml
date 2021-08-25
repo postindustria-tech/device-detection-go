@@ -126,6 +126,11 @@ stages:
         failOnStderr: true
 
       # Set up the build and test environment
+      - bash: |
+          echo "C compilers:"
+          which gcc
+          which g++
+        displayName: "Print compiler information"
 
       # Run prebuild
       - powershell: |
