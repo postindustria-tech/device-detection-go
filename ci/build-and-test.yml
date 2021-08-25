@@ -14,7 +14,8 @@ variables:
 
 stages:
 - template: shared-build-and-test-stage.yml
-  runTests: variables['RunTests']
+  parameters:
+    runTests: variables['RunTests']
 
 # Try to complete the corresponding pull request if
 # this is triggered by one.    
