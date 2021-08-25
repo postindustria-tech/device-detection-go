@@ -69,6 +69,11 @@ if ($IsWindows) {
     $args = '-G "MinGW Makefiles"'
 }
 
+# If not running on Linux, make CMake to use gcc and g++
+if (!$IsLinux) {
+    $args = '-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ' + $args
+}
+
 cmake .. $args
 if (!$?) {
     Write-Host "# ERROR: Failed to create Makefiles. Exit."

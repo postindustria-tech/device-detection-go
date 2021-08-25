@@ -129,8 +129,6 @@ stages:
 
       # Run prebuild
       - powershell: |
-          $Env:CC=gcc
-          $Env:CXX=g++
           ./dd/scripts/prebuild.ps1
         displayName: 'Build device detection core binaries'
 
@@ -138,6 +136,8 @@ stages:
       - bash: |
           export CC=gcc
           export CXX=g++
+          echo "Setting CC to $CC and CXX to $CXX"
+
           go test ./dd
         displayName: 'Run tests'
         
@@ -176,8 +176,6 @@ stages:
 
       # Run prebuild
       - powershell: |
-          $Env:CC=gcc
-          $Env:CXX=g++
           ./dd/scripts/prebuild.ps1
         displayName: 'Build device detection core binaries'
 
@@ -185,6 +183,8 @@ stages:
       - bash: |
           export CC=gcc
           export CXX=g++
+          echo "Setting CC to $CC and CXX to $CXX"
+
           go test ./dd
         displayName: 'Run tests'
         
