@@ -152,49 +152,49 @@ stages:
       #    failTaskOnFailedTests: true
       #  condition: always()
   
-- stage: Windows
-  dependsOn: []
-
-  jobs:
-    - job: Build_and_Test
-      displayName: Build and Test
-      condition: ne(${{ parameters.runTests }}, 'Off')
-
-      variables: 
-        - group: InternalKeys
-
-      pool:
-        vmImage: ${{ parameters.windowsImage }}
-
-      steps:
-      - checkout: self
-        submodules: recursive
-        lfs: true
-        persistCredentials: true
-
-      # Set up the build and test environment
-
-      # Run prebuild
-      - powershell: |
-          ./dd/scripts/prebuild.ps1
-        displayName: 'Build device detection core binaries'
-
-      # Run test
-      - bash: |
-          export CC=gcc
-          export CXX=g++
-          echo "Setting CC to $CC and CXX to $CXX"
-
-          go test ./dd
-        displayName: 'Run tests'
-        
-      # Publish Test Results to Azure Pipelines/TFS
-      #- task: PublishTestResults@2
-      #  inputs:
-      #    testRunner: 'JUnit'
-      #    testResultsFiles: '**/test-results.xml'
-      #    searchFolder: '$(System.DefaultWorkingDirectory)'
-      #    mergeTestResults: false
-      #    testRunTitle: '$(phpVersion)'
-      #    failTaskOnFailedTests: true
-      #  condition: always()
+#- stage: Windows
+#  dependsOn: []
+#
+#  jobs:
+#    - job: Build_and_Test
+#      displayName: Build and Test
+#      condition: ne(${{ parameters.runTests }}, 'Off')
+#
+#      variables: 
+#        - group: InternalKeys
+#
+#      pool:
+#        vmImage: ${{ parameters.windowsImage }}
+#
+#      steps:
+#      - checkout: self
+#        submodules: recursive
+#        lfs: true
+#        persistCredentials: true
+#
+#      # Set up the build and test environment
+#
+#      # Run prebuild
+#      - powershell: |
+#          ./dd/scripts/prebuild.ps1
+#        displayName: 'Build device detection core binaries'
+#
+#      # Run test
+#      - bash: |
+#          export CC=gcc
+#          export CXX=g++
+#          echo "Setting CC to $CC and CXX to $CXX"
+#          
+#          go test ./dd
+#        displayName: 'Run tests'
+#        
+#      # Publish Test Results to Azure Pipelines/TFS
+#      #- task: PublishTestResults@2
+#      #  inputs:
+#      #    testRunner: 'JUnit'
+#      #    testResultsFiles: '**/test-results.xml'
+#      #    searchFolder: '$(System.DefaultWorkingDirectory)'
+#      #    mergeTestResults: false
+#      #    testRunTitle: '$(phpVersion)'
+#      #    failTaskOnFailedTests: true
+#      #  condition: always()

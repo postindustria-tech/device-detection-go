@@ -69,9 +69,9 @@ if ($IsWindows) {
     $args = '-G "MinGW Makefiles"'
 }
 
-# If not running on Linux, make CMake to use gcc and g++
-if (!$IsLinux) {
-    $args = '-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ ' + $args
+# If running on MacOS, make CMake to use gcc and g++
+if ($IsMacOS) {
+    $args = '-DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ ' + $args
 }
 
 cmake .. $args
