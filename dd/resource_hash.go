@@ -18,13 +18,17 @@ func InitManagerFromFile(
 	config ConfigHash,
 	properties string,
 	fileName string) error {
+
 	e := NewException()
+	cName := C.CString(fileName)
 	_, err := C.HashInitManagerFromFile(
 		manager.CPtr,
 		config.CPtr,
 		NewPropertiesRequired(properties).CPtr,
-		C.CString(fileName),
+		cName,
 		e.CPtr)
+	C.free(unsafe.Pointer(cName))
+
 	// Check err
 	if err != nil {
 		return err
