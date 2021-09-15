@@ -11,7 +11,8 @@ import "unsafe"
 type PerformanceProfile int
 
 const (
-	LowMemory PerformanceProfile = iota
+	Default PerformanceProfile = iota
+	LowMemory
 	BalancedTemp
 	Balanced
 	HighPerformance
@@ -57,9 +58,13 @@ func (config *ConfigHash) SetConcurrency(concurrency uint16) {}
 // during processing.
 func (config *ConfigHash) SetTraceRoute(trace bool) {}
 
-// SetUseUpperPrefixHeaders set whether or note the HTTP header might be
+// SetUseUpperPrefixHeaders set whether or not the HTTP header might be
 // prefixed with 'HTTP_'
 func (config *ConfigHash) SetUseUpperPrefixHeaders(use bool) {}
+
+// SetUpdatedMatchedUserAgent set whether or note tracking the matched
+// User-Agent should be enabled.
+func (config *ConfigHash) SetUpdateMatchedUserAgent(use bool) {}
 
 /* Getters */
 
