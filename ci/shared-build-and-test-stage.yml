@@ -59,6 +59,7 @@ stages:
         displayName: 'Run tests'
         inputs:
           command: test
+          arguments: './...'
 
 - stage: MacOS
   dependsOn: []
@@ -104,3 +105,4 @@ stages:
         displayName: 'Run tests'
         inputs:
           command: test
+          arguments: './...'
