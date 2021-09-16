@@ -1,10 +1,11 @@
 # Template for build and test stage, which tests api on specified agent
 parameters:
-- name: macImage
-- name: windowsImage
 - name: runTests
   type: string
   default: 'On'
+- name: goVersion
+  type: string
+  default: '1.17'
 
 stages:
 - stage: Linux
@@ -40,63 +41,24 @@ stages:
             gcc-multilib \
             g++-multilib        
         displayName: 'Install Required Packages'
-      
-      #- script: |
-      #    wget http://ftp.br.debian.org/debian/pool/main/d/dmalloc/libdmalloc-dev_5.5.2-6_i386.deb
-      #    sudo dpkg --add-architecture i386
-      #    sudo apt-get -y update
-      #    sudo dpkg -i libdmalloc-dev_5.5.2-6_i386.deb
-      #    sudo sudo apt-get -y install -f
-      #  displayName: 'Install Required 32bit Packages'
-      #  condition: and(succeeded(), eq(variables['BuildPlatform'], 'x86'))
-      
-      - script: |
-          sudo apt-get -y install libdmalloc-dev
-        displayName: 'Install Required 64bit Packages'
-        # condition: and(succeeded(), eq(variables['BuildPlatform'], 'x64'))
-        failOnStderr: true
-
-      # Set up the build and test environment
 
       # Run prebuild
       - powershell: |
           ./dd/scripts/prebuild.ps1
         displayName: 'Build device detection core binaries'
+        workingDirectory: '$(Build.SourcesDirectory)'
+
+      # Install go
+      - task: GoTool@0
+        displayName: 'Use go ${{ parameters.goVersion }}'
+        inputs:
+          version: '${{ parameters.goVersion }}'
 
       # Run test
-      - bash: |
-          go test ./dd
+      - task: Go@0
         displayName: 'Run tests'
-        
-      # Publish Test Results to Azure Pipelines/TFS
-      #- task: PublishTestResults@2
-      #  inputs:
-      #    testRunner: 'JUnit'
-      #    testResultsFiles: '**/test-results.xml'
-      #    searchFolder: '$(System.DefaultWorkingDirectory)'
-      #    mergeTestResults: false
-      #    testRunTitle: '$(phpVersion)'
-      #    failTaskOnFailedTests: true
-      #  condition: always()
-  
-      # Build performance tests
-      #- script: |
-      #    cd performance-tests
-      #    sudo apt-get install cmake apache2-dev libapr1-dev libaprutil1-dev
-      #    mkdir build
-      #    cd build
-      #    cmake ..
-      #    cmake --build .
-      #    cd ..
-      #  displayName: 'Build Performance Tests'
-
-      # Run performance tests
-      #- script: |
-      #    cd performance-tests/build
-      #    ./runPerf.sh
-      #    cd ..
-      #  displayName: 'Run Performance Tests'
-      #  failOnStderr: true
+        inputs:
+          command: test
 
 - stage: MacOS
   dependsOn: []
@@ -109,8 +71,15 @@ stages:
       variables: 
         - group: InternalKeys
 
+      strategy:
+        matrix:
+          MacOS 10.14:
+            imageName: 'macOS-10.14'
+          MacOS 10.15:
+            imageName: 'macOS-10.15'
+
       pool:
-        vmImage: ${{ parameters.macImage }}
+        vmImage: $(imageName)
 
       steps:
       - checkout: self
@@ -118,99 +87,20 @@ stages:
         lfs: true
         persistCredentials: true
 
-      # Install any pre-requisites
-      - script: |
-          brew search dmalloc
-          brew install dmalloc
-        displayName: 'Install Required Packages'
-        failOnStderr: true
-
-      # Set up the build and test environment
-      - bash: |
-          echo "C compilers:"
-          which gcc
-          which g++
-        displayName: "Print compiler information"
-
-      # Try prebuild using script
-      - bash: |
-          cd dd/device-detection-cxx
-          mkdir build
-          cd build
-          export CC=/usr/bin/gcc
-          export CXX=/usr/bin/g++
-          cmake .. -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_BUILD_TYPE=Release
-          cmake --build .
-        displayName: "Try to build in a bash environment"
+      # Install go
+      - task: GoTool@0
+        displayName: 'Use go ${{ parameters.goVersion }}'
+        inputs:
+          version: '${{ parameters.goVersion }}'
 
       # Run prebuild
       - powershell: |
           ./dd/scripts/prebuild.ps1
         displayName: 'Build device detection core binaries'
+        workingDirectory: '$(Build.SourcesDirectory)'
 
       # Run test
-      - bash: |
-          export CC=gcc
-          export CXX=g++
-          echo "Setting CC to $CC and CXX to $CXX"
-
-          go test ./dd
+      - task: Go@0
         displayName: 'Run tests'
-        
-      # Publish Test Results to Azure Pipelines/TFS
-      #- task: PublishTestResults@2
-      #  inputs:
-      #    testRunner: 'JUnit'
-      #    testResultsFiles: '**/test-results.xml'
-      #    searchFolder: '$(System.DefaultWorkingDirectory)'
-      #    mergeTestResults: false
-      #    testRunTitle: '$(phpVersion)'
-      #    failTaskOnFailedTests: true
-      #  condition: always()
-  
-#- stage: Windows
-#  dependsOn: []
-#
-#  jobs:
-#    - job: Build_and_Test
-#      displayName: Build and Test
-#      condition: ne(${{ parameters.runTests }}, 'Off')
-#
-#      variables: 
-#        - group: InternalKeys
-#
-#      pool:
-#        vmImage: ${{ parameters.windowsImage }}
-#
-#      steps:
-#      - checkout: self
-#        submodules: recursive
-#        lfs: true
-#        persistCredentials: true
-#
-#      # Set up the build and test environment
-#
-#      # Run prebuild
-#      - powershell: |
-#          ./dd/scripts/prebuild.ps1
-#        displayName: 'Build device detection core binaries'
-#
-#      # Run test
-#      - bash: |
-#          export CC=gcc
-#          export CXX=g++
-#          echo "Setting CC to $CC and CXX to $CXX"
-#          
-#          go test ./dd
-#        displayName: 'Run tests'
-#        
-#      # Publish Test Results to Azure Pipelines/TFS
-#      #- task: PublishTestResults@2
-#      #  inputs:
-#      #    testRunner: 'JUnit'
-#      #    testResultsFiles: '**/test-results.xml'
-#      #    searchFolder: '$(System.DefaultWorkingDirectory)'
-#      #    mergeTestResults: false
-#      #    testRunTitle: '$(phpVersion)'
-#      #    failTaskOnFailedTests: true
-#      #  condition: always()
+        inputs:
+          command: test
