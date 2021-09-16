@@ -1,6 +1,7 @@
 package dd
 
 // #include <string.h>
+// #include "./device-detection-cxx/src/common-cxx/fiftyone.h"
 // #include "./device-detection-cxx/src/hash/hash.h"
 // #include "./device-detection-cxx/src/hash/fiftyone.h"
 import "C"
@@ -39,110 +40,145 @@ func (results *ResultsHash) Free() error {
 
 /* Metric Getters */
 
-// GetDeviceId returns the unique device id. This matches the C API
+// DeviceId returns the unique device id. This matches the C API
 // fiftyoneDegreesHashGetDeviceIdFromResults.
-func (results *ResultsHash) GetDeviceId() (id string, err error) {
+func (results *ResultsHash) DeviceId() (id string, err error) {
 	return "", nil
 }
 
-// GetDeviceIdByIndex returns the unique device id of a result pointed by a index.
-func (results *ResultsHash) GetDeviceIdByIndex(index uint32) string {
+// DeviceIdByIndex returns the unique device id of a result pointed by a index.
+func (results *ResultsHash) DeviceIdByIndex(index uint32) string {
 	return ""
 }
 
-// GetIterations returns the number of iterations carried out in order to find
+// Iterations returns the number of iterations carried out in order to find
 // a match.
-func (results *ResultsHash) GetIterations() int {
+func (results *ResultsHash) Iterations() int {
 	return 0
 }
 
-// GetDrift returns the maximum drift for a matched substring.
-func (results *ResultsHash) GetDrift() int {
+// Iterations returns the number of iterations carried out in order to find
+// a match of a result pointed by an index.
+func (results *ResultsHash) IterationsByIndex(index uint32) int {
+	return int(results.CPtr.items[index].iterations)
+}
+
+// Drift returns the maximum drift for a matched substring.
+func (results *ResultsHash) Drift() int {
 	return 0
 }
 
-// GetDriftByIndex returns the drift for a matched substring of a result pointed
+// DriftByIndex returns the drift for a matched substring of a result pointed
 // by an index.
-func (results *ResultsHash) GetDritfByIndex(index uint32) int {
-	return 0
+func (results *ResultsHash) DriftByIndex(index uint32) int {
+	return int(results.CPtr.items[index].drift)
 }
 
-// GetDifference returns the total difference between the results returned and
+// Difference returns the total difference between the results returned and
 // the target User-Agent.
-func (results *ResultsHash) GetDifference() int {
+func (results *ResultsHash) Difference() int {
 	return 0
 }
 
-// GetDifferenceByIndex returns the difference between the result pointed by a
+// DifferenceByIndex returns the difference between the result pointed by a
 // index and the target User-Agent.
-func (results *ResultsHash) GetDifferenceByIndex(index uint32) int {
+func (results *ResultsHash) DifferenceByIndex(index uint32) int {
+	return int(results.CPtr.items[index].difference)
+}
+
+// MatchedNodes returns the number of hash nodes matched within the evidence.
+func (results *ResultsHash) MatchedNodes() int {
 	return 0
 }
 
-// GetMatchedNodes returns the number of hash nodes matched within the evidence.
-func (results *ResultsHash) GetMatchedNodes() int {
+// Method returns the method used to determine the match result.
+func (results *ResultsHash) Method(index uint32) int {
 	return 0
 }
 
-// GetMethod returns the method used to determine the match result.
-func (results *ResultsHash) GetMethod(index uint32) int {
-	return 0
-}
-
-// GetMethodByIndex returns the method use to determine a match result pointed
+// MethodByIndex returns the method use to determine a match result pointed
 // by a index.
-func (results *ResultsHash) GetMethodByIndex(index uint32) int {
+func (results *ResultsHash) MethodByIndex(index uint32) int {
 	return 0
 }
 
-// GetTrace returns the trace route in a readable format.
-func (results *ResultsHash) GetTrace() string {
+// Trace returns the trace route in a readable format.
+func (results *ResultsHash) Trace() string {
 	return ""
 }
 
-// GetTraceByIndex returns the trace reoute in a readable format of a result
+// TraceByIndex returns the trace reoute in a readable format of a result
 // pointed by a given index.
-func (results *ResultsHash) GetTraceByIndex(index uint32) string {
+func (results *ResultsHash) TraceByIndex(index uint32) string {
 	return ""
 }
 
-// GetUserAgents returns number of User-Agents that were used in the results.
-func (results *ResultsHash) GetUserAgents() int {
-	return 0
+// UserAgents returns number of User-Agents that were used in the results.
+func (results *ResultsHash) UserAgents() int {
+	return int(results.CPtr.count)
 }
 
-// GetUserAgent return the user agent of a result pointed by a given index.
-func (results *ResultsHash) GetUserAgent(index int) string {
-	return ""
+// UserAgent return the user agent of a result pointed by a given index.
+func (results *ResultsHash) UserAgent(index int) string {
+	return C.GoString(results.CPtr.items[C.int(index)].b.matchedUserAgent)
 }
 
-// GetHasValues returns whether the last detection returns any matched value
+// HasValues returns whether the last detection returns any matched value
 // for a given property index. This matches the C API
 // fiftyoneDegreesResultsHashGetHasValues
-func (results *ResultsHash) GetHasValues(
+func (results *ResultsHash) HasValues(
 	requiredPropertyIndex int) (r bool, err error) {
-	return false, nil
+	e := NewException()
+	hasValues, err := C.ResultsHashGetHasValues(
+		results.CPtr, C.int(requiredPropertyIndex), e.CPtr)
+	if err != nil {
+		return false, err
+	}
+
+	// Check exception
+	if !e.IsOkay() {
+		return false, fmt.Errorf(C.GoString(C.ExceptionGetMessage(e.CPtr)))
+	}
+	return bool(hasValues), nil
 }
 
-// GetNoValueReasonMessage returns the no value message of a given property
+// NoValueReasonMessage returns the no value message of a given property
 // index. This matches a combination of the C APIs
 // fiftyoneDegreesResultsNoValueReason and
 // fiftyoneDegreesResultsHashGetNoValueReasonMessage
-func (results *ResultsHash) GetNoValueReasonMessage(
-	requiredPropertyIndex int) (message string, err error) {
-	return "", nil
+func (results *ResultsHash) NoValueReasonMessage(
+	requiredPropertyIndex int) (m string, err error) {
+	e := NewException()
+	reason, err := C.ResultsHashGetNoValueReason(
+		results.CPtr, C.int(requiredPropertyIndex), e.CPtr)
+	if err != nil {
+		return "", err
+	}
+
+	// Check exception
+	if !e.IsOkay() {
+		return "", fmt.Errorf(C.GoString(C.ExceptionGetMessage(e.CPtr)))
+	}
+
+	// Get no value reason message
+	message, err := C.ResultsHashGetNoValueReasonMessage(reason)
+	if err != nil {
+		return "", err
+	}
+
+	return C.GoString(message), nil
 }
 
-// GetValues returns a list of values resulted from a detection for a given
+// Values returns a list of values resulted from a detection for a given
 // property index.
-func (results *ResultsHash) GetValues(
+func (results *ResultsHash) Values(
 	requiredPropertyIndex int) (values []string, err error) {
 	return nil, nil
 }
 
-// GetValuesString returns a string of all values resulted from a detection.
+// ValuesString returns a string of all values resulted from a detection.
 // If there are multiple values, they are separated by the specified separator.
-func (results *ResultsHash) GetValuesString(
+func (results *ResultsHash) ValuesString(
 	propertyName string,
 	size uint64,
 	separator string) (value string, s uint64, err error) {
@@ -170,21 +206,35 @@ func (results *ResultsHash) GetValuesString(
 	return C.GoString(&buffer[0]), uint64(actualSize), nil
 }
 
-// GetAvailableProperties returns a list of available properties. The index
+// AvailableProperties returns a list of available properties. The index
 // of this property can be used obtain further details about the property.
-func (results *ResultsHash) GetAvailableProperties() []string {
-	return nil
+func (results *ResultsHash) AvailableProperties() (a []string, err error) {
+	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
+	cAvailable := dataSet.b.b.available
+	availableCount := int(cAvailable.count)
+	available := make([]string, 0, availableCount)
+	// Loop through the C available properties list and add it to the
+	// new Go available array.
+	for i := 0; i < availableCount; i++ {
+		name := C.PropertiesGetNameFromRequiredIndex(cAvailable, C.int(i))
+		if err != nil {
+			return available, err
+		}
+
+		available[i] = C.GoString(&name.value)
+	}
+	return available, nil
 }
 
 // NewPropertyName returns the name of a property at a given index.
-func (results *ResultsHash) GetPropertyName(
+func (results *ResultsHash) PropertyName(
 	requiredPropertyIndex int) string {
 	return ""
 }
 
-// GetPropertyType returns the type that a value of a property determined by
+// PropertyType returns the type that a value of a property determined by
 // a given proprety index can have.
-func (results *ResultsHash) GetPropertyType(
+func (results *ResultsHash) PropertyType(
 	requiredPropertyIndex int) reflect.Type {
 	return nil
 }

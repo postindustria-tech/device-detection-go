@@ -61,52 +61,52 @@ func (config *ConfigHash) SetTraceRoute(trace bool) {}
 // prefixed with 'HTTP_'
 func (config *ConfigHash) SetUseUpperPrefixHeaders(use bool) {}
 
-// SetUpdatedMatchedUserAgent set whether or note tracking the matched
+// SetUpdateMatchedUserAgent set whether or note tracking the matched
 // User-Agent should be enabled.
 func (config *ConfigHash) SetUpdateMatchedUserAgent(use bool) {}
 
 /* Getters */
 
-// GetPerformanceProfile get the configured performance profile
-func (config *ConfigHash) GetPerformanceProfile() PerformanceProfile {
+// PerformanceProfile get the configured performance profile
+func (config *ConfigHash) PerformanceProfile() PerformanceProfile {
 	return Balanced
 }
 
-// GetDifference returns the configured difference value
-func (config *ConfigHash) GetDifference() int32 {
+// Difference returns the configured difference value
+func (config *ConfigHash) Difference() int32 {
 	return 0
 }
 
-// GetDrift returns the configured drift value
-func (config *ConfigHash) GetDrift() int32 {
+// Drift returns the configured drift value
+func (config *ConfigHash) Drift() int32 {
 	return 0
 }
 
-// GetUsePerformanceGraph returns whether performance optimized graph should be
+// UsePerformanceGraph returns whether performance optimized graph should be
 // used.
-func (config *ConfigHash) GetUsePerformanceGraph() bool {
+func (config *ConfigHash) UsePerformanceGraph() bool {
 	return false
 }
 
-// GetUsePredictiveGraph returns whether predictive optmized graph should be
+// UsePredictiveGraph returns whether predictive optmized graph should be
 // used.
-func (config *ConfigHash) GetUsePredictiveGraph() bool {
+func (config *ConfigHash) UsePredictiveGraph() bool {
 	return false
 }
 
-// GetConcurrency returns the configured concurrency
-func (config *ConfigHash) GetConcurrency() uint16 {
+// Concurrency returns the configured concurrency
+func (config *ConfigHash) Concurrency() uint16 {
 	return 0
 }
 
-// GetTraceRoute returns whether route through each graph should be traced.
-func (config *ConfigHash) GetTraceRoute() bool {
+// TraceRoute returns whether route through each graph should be traced.
+func (config *ConfigHash) TraceRoute() bool {
 	return false
 }
 
-// GetUseUpperPrefixHeaders returns whether HTTP_ upper case prefixes should be
+// UseUpperPrefixHeaders returns whether HTTP_ upper case prefixes should be
 // considered when evaluating HTTP hreaders.
-func (config *ConfigHash) GetUseUpperPrefixHeaders() bool {
+func (config *ConfigHash) UseUpperPrefixHeaders() bool {
 	return false
 }
 
