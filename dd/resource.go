@@ -1,6 +1,5 @@
 package dd
 
-// #cgo LDFLAGS: -L./device-detection-cxx/build/lib -lfiftyone-common-c -lm -latomic
 // #include <string.h>
 // #include "./device-detection-cxx/src/common-cxx/fiftyone.h"
 import "C"
