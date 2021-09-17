@@ -8,11 +8,16 @@ import "C"
 import (
 	"fmt"
 	"reflect"
+	"unsafe"
 )
+
+// Maximum bit shift count for unsigned int 32.
+const shiftCount32bit = 32
 
 // ResultsHash wraps around a pointer to a value of C ResultsHash structure
 type ResultsHash struct {
-	CPtr *C.ResultsHash
+	CPtr     *C.ResultsHash
+	CResults *interface{} // Pointer to a slice holding C results
 }
 
 /* Constructor and Destructor */
@@ -27,9 +32,14 @@ func NewResultsHash(
 		C.uint(uaCapacity),
 		C.uint(overridesCapacity))
 	if err != nil {
-		return ResultsHash{nil}, err
+		return ResultsHash{nil, nil}, err
 	}
-	return ResultsHash{r}, nil
+
+	// Map the items list to Go slice. This is done once so every access to
+	// each result won't have to cast and create the slice again.
+	var cResults interface{} = (*[1 << shiftCount32bit]C.ResultHash)(
+		unsafe.Pointer(r.items))[:r.capacity:r.capacity]
+	return ResultsHash{r, &cResults}, nil
 }
 
 // Free free the resource allocated in the C layer.
@@ -60,7 +70,8 @@ func (results *ResultsHash) Iterations() int {
 // Iterations returns the number of iterations carried out in order to find
 // a match of a result pointed by an index.
 func (results *ResultsHash) IterationsByIndex(index uint32) int {
-	return int(results.CPtr.items[index].iterations)
+	cResults := (*results.CResults).([]C.ResultHash)
+	return int(cResults[index].iterations)
 }
 
 // Drift returns the maximum drift for a matched substring.
@@ -71,7 +82,8 @@ func (results *ResultsHash) Drift() int {
 // DriftByIndex returns the drift for a matched substring of a result pointed
 // by an index.
 func (results *ResultsHash) DriftByIndex(index uint32) int {
-	return int(results.CPtr.items[index].drift)
+	cResults := (*results.CResults).([]C.ResultHash)
+	return int(cResults[index].drift)
 }
 
 // Difference returns the total difference between the results returned and
@@ -83,7 +95,8 @@ func (results *ResultsHash) Difference() int {
 // DifferenceByIndex returns the difference between the result pointed by a
 // index and the target User-Agent.
 func (results *ResultsHash) DifferenceByIndex(index uint32) int {
-	return int(results.CPtr.items[index].difference)
+	cResults := (*results.CResults).([]C.ResultHash)
+	return int(cResults[index].difference)
 }
 
 // MatchedNodes returns the number of hash nodes matched within the evidence.
@@ -120,7 +133,8 @@ func (results *ResultsHash) UserAgents() int {
 
 // UserAgent return the user agent of a result pointed by a given index.
 func (results *ResultsHash) UserAgent(index int) string {
-	return C.GoString(results.CPtr.items[C.int(index)].b.matchedUserAgent)
+	cResults := (*results.CResults).([]C.ResultHash)
+	return C.GoString(cResults[index].b.matchedUserAgent)
 }
 
 // HasValues returns whether the last detection returns any matched value
@@ -221,7 +235,7 @@ func (results *ResultsHash) AvailableProperties() (a []string, err error) {
 			return available, err
 		}
 
-		available[i] = C.GoString(&name.value)
+		available = append(available, C.GoString(&name.value))
 	}
 	return available, nil
 }
