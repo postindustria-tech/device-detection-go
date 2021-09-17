@@ -27,12 +27,12 @@ func NewResultsHash(
 	manager *ResourceManager,
 	uaCapacity uint32,
 	overridesCapacity uint32) (results ResultsHash, err error) {
-	r, err := C.ResultsHashCreate(
+	r, e := C.ResultsHashCreate(
 		manager.CPtr,
 		C.uint(uaCapacity),
 		C.uint(overridesCapacity))
-	if err != nil {
-		return ResultsHash{nil, nil}, err
+	if e != nil {
+		return ResultsHash{nil, nil}, e
 	}
 
 	// Map the items list to Go slice. This is done once so every access to
@@ -141,19 +141,19 @@ func (results *ResultsHash) UserAgent(index int) string {
 // for a given property index. This matches the C API
 // fiftyoneDegreesResultsHashGetHasValues
 func (results *ResultsHash) HasValues(
-	requiredPropertyIndex int) (r bool, err error) {
-	e := NewException()
-	hasValues, err := C.ResultsHashGetHasValues(
-		results.CPtr, C.int(requiredPropertyIndex), e.CPtr)
-	if err != nil {
-		return false, err
+	requiredPropertyIndex int) (hasValues bool, err error) {
+	exp := NewException()
+	r, e := C.ResultsHashGetHasValues(
+		results.CPtr, C.int(requiredPropertyIndex), exp.CPtr)
+	if e != nil {
+		return false, e
 	}
 
 	// Check exception
-	if !e.IsOkay() {
-		return false, fmt.Errorf(C.GoString(C.ExceptionGetMessage(e.CPtr)))
+	if !exp.IsOkay() {
+		return false, fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
 	}
-	return bool(hasValues), nil
+	return bool(r), nil
 }
 
 // NoValueReasonMessage returns the no value message of a given property
@@ -161,26 +161,26 @@ func (results *ResultsHash) HasValues(
 // fiftyoneDegreesResultsNoValueReason and
 // fiftyoneDegreesResultsHashGetNoValueReasonMessage
 func (results *ResultsHash) NoValueReasonMessage(
-	requiredPropertyIndex int) (m string, err error) {
-	e := NewException()
-	reason, err := C.ResultsHashGetNoValueReason(
-		results.CPtr, C.int(requiredPropertyIndex), e.CPtr)
-	if err != nil {
-		return "", err
+	requiredPropertyIndex int) (message string, err error) {
+	exp := NewException()
+	reason, e := C.ResultsHashGetNoValueReason(
+		results.CPtr, C.int(requiredPropertyIndex), exp.CPtr)
+	if e != nil {
+		return "", e
 	}
 
 	// Check exception
-	if !e.IsOkay() {
-		return "", fmt.Errorf(C.GoString(C.ExceptionGetMessage(e.CPtr)))
+	if !exp.IsOkay() {
+		return "", fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
 	}
 
 	// Get no value reason message
-	message, err := C.ResultsHashGetNoValueReasonMessage(reason)
-	if err != nil {
-		return "", err
+	m, e := C.ResultsHashGetNoValueReasonMessage(reason)
+	if e != nil {
+		return "", e
 	}
 
-	return C.GoString(message), nil
+	return C.GoString(m), nil
 }
 
 // Values returns a list of values resulted from a detection for a given
@@ -195,26 +195,26 @@ func (results *ResultsHash) Values(
 func (results *ResultsHash) ValuesString(
 	propertyName string,
 	size uint64,
-	separator string) (value string, s uint64, err error) {
+	separator string) (value string, actual uint64, err error) {
 	// Create slice based on specified size
 	buffer := make([]C.char, size)
-	e := NewException()
-	actualSize, err := C.ResultsHashGetValuesString(
+	exp := NewException()
+	actualSize, e := C.ResultsHashGetValuesString(
 		results.CPtr,
 		C.CString(propertyName),
 		&buffer[0],
 		C.ulong(size),
 		C.CString(separator),
-		e.CPtr)
+		exp.CPtr)
 	// Check err
-	if err != nil {
-		return "", uint64(actualSize), err
+	if e != nil {
+		return "", uint64(actualSize), e
 	}
 
 	// Check exception
-	if !e.IsOkay() {
+	if !exp.IsOkay() {
 		return "", uint64(actualSize), fmt.Errorf(
-			C.GoString(C.ExceptionGetMessage(e.CPtr)))
+			C.GoString(C.ExceptionGetMessage(exp.CPtr)))
 	}
 
 	return C.GoString(&buffer[0]), uint64(actualSize), nil
@@ -222,28 +222,51 @@ func (results *ResultsHash) ValuesString(
 
 // AvailableProperties returns a list of available properties. The index
 // of this property can be used obtain further details about the property.
-func (results *ResultsHash) AvailableProperties() (a []string, err error) {
+func (results *ResultsHash) AvailableProperties() (available []string, err error) {
 	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
 	cAvailable := dataSet.b.b.available
 	availableCount := int(cAvailable.count)
-	available := make([]string, 0, availableCount)
+	a := make([]string, 0, availableCount)
 	// Loop through the C available properties list and add it to the
 	// new Go available array.
 	for i := 0; i < availableCount; i++ {
-		name := C.PropertiesGetNameFromRequiredIndex(cAvailable, C.int(i))
+		name, e := C.PropertiesGetNameFromRequiredIndex(cAvailable, C.int(i))
 		if err != nil {
-			return available, err
+			return a, e
 		}
 
-		available = append(available, C.GoString(&name.value))
+		a = append(a, C.GoString(&name.value))
 	}
-	return available, nil
+	return a, nil
 }
 
-// NewPropertyName returns the name of a property at a given index.
+// PropertyName returns the name of a property at a given index.
 func (results *ResultsHash) PropertyName(
-	requiredPropertyIndex int) string {
-	return ""
+	requiredPropertyIndex int) (name string, err error) {
+	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
+	cAvailable := dataSet.b.b.available
+	n, e := C.PropertiesGetNameFromRequiredIndex(
+		cAvailable, C.int(requiredPropertyIndex))
+	if e != nil {
+		return "", e
+	}
+	return C.GoString(&n.value), nil
+}
+
+// RequiredPropertyIndexFromName returns the required index of a property
+// using its name
+func (results *ResultsHash) RequiredPropertyIndexFromName(
+	propertyName string) (index int, err error) {
+	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
+	cAvailable := dataSet.b.b.available
+	cName := C.CString(propertyName)
+	i, e := C.PropertiesGetRequiredPropertyIndexFromName(
+		cAvailable, cName)
+	if e != nil {
+		return -1, e
+	}
+	C.free(unsafe.Pointer(cName))
+	return int(i), nil
 }
 
 // PropertyType returns the type that a value of a property determined by
