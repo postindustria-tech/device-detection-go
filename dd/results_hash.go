@@ -14,6 +14,24 @@ import (
 // Maximum bit shift count for unsigned int 32.
 const shiftCount32bit = 32
 
+// Match method
+type MatchMethod int
+
+// Types of method
+const (
+	None MatchMethod = iota
+	Performance
+	Combined
+	Predictive
+)
+
+var cMethodMap = map[C.HashMatchMethod]MatchMethod{
+	C.FIFTYONE_DEGREES_HASH_MATCH_METHOD_NONE:        None,
+	C.FIFTYONE_DEGREES_HASH_MATCH_METHOD_PERFORMANCE: Performance,
+	C.FIFTYONE_DEGREES_HASH_MATCH_METHOD_COMBINED:    Combined,
+	C.FIFTYONE_DEGREES_HASH_MATCH_METHOD_PREDICTIVE:  Predictive,
+}
+
 // ResultsHash wraps around a pointer to a value of C ResultsHash structure
 type ResultsHash struct {
 	CPtr     *C.ResultsHash
@@ -45,6 +63,11 @@ func NewResultsHash(
 // Free free the resource allocated in the C layer.
 func (results *ResultsHash) Free() error {
 	_, err := C.ResultsHashFree(results.CPtr)
+	// If successfully freed the results, set the C pointer to nil.
+	// Else, keep the pointer for future reference.
+	if err == nil {
+		results.CPtr = nil
+	}
 	return err
 }
 
@@ -53,18 +76,25 @@ func (results *ResultsHash) Free() error {
 // DeviceId returns the unique device id. This matches the C API
 // fiftyoneDegreesHashGetDeviceIdFromResults.
 func (results *ResultsHash) DeviceId() (id string, err error) {
+	// TODO: To be implemented
 	return "", nil
 }
 
 // DeviceIdByIndex returns the unique device id of a result pointed by a index.
 func (results *ResultsHash) DeviceIdByIndex(index uint32) string {
+	// TODO: To be implemented
 	return ""
 }
 
 // Iterations returns the number of iterations carried out in order to find
 // a match.
 func (results *ResultsHash) Iterations() int {
-	return 0
+	iterations := 0
+	cResults := (*results.CResults).([]C.ResultHash)
+	for _, cResult := range cResults {
+		iterations += int(cResult.iterations)
+	}
+	return iterations
 }
 
 // Iterations returns the number of iterations carried out in order to find
@@ -76,7 +106,12 @@ func (results *ResultsHash) IterationsByIndex(index uint32) int {
 
 // Drift returns the maximum drift for a matched substring.
 func (results *ResultsHash) Drift() int {
-	return 0
+	drift := 0
+	cResults := (*results.CResults).([]C.ResultHash)
+	for _, cResult := range cResults {
+		drift += int(cResult.drift)
+	}
+	return drift
 }
 
 // DriftByIndex returns the drift for a matched substring of a result pointed
@@ -89,7 +124,12 @@ func (results *ResultsHash) DriftByIndex(index uint32) int {
 // Difference returns the total difference between the results returned and
 // the target User-Agent.
 func (results *ResultsHash) Difference() int {
-	return 0
+	difference := 0
+	cResults := (*results.CResults).([]C.ResultHash)
+	for _, cResult := range cResults {
+		difference += int(cResult.difference)
+	}
+	return difference
 }
 
 // DifferenceByIndex returns the difference between the result pointed by a
@@ -101,28 +141,44 @@ func (results *ResultsHash) DifferenceByIndex(index uint32) int {
 
 // MatchedNodes returns the number of hash nodes matched within the evidence.
 func (results *ResultsHash) MatchedNodes() int {
-	return 0
+	matchedNodes := 0
+	cResults := (*results.CResults).([]C.ResultHash)
+	for _, cResult := range cResults {
+		matchedNodes += int(cResult.matchedNodes)
+	}
+	return matchedNodes
 }
 
 // Method returns the method used to determine the match result.
-func (results *ResultsHash) Method(index uint32) int {
-	return 0
+func (results *ResultsHash) Method(index uint32) MatchMethod {
+	method := results.MethodByIndex(0)
+	cResults := (*results.CResults).([]C.ResultHash)
+	for _, cResult := range cResults {
+		nextMethod := cMethodMap[cResult.method]
+		if nextMethod > method {
+			method = nextMethod
+		}
+	}
+	return method
 }
 
 // MethodByIndex returns the method use to determine a match result pointed
 // by a index.
-func (results *ResultsHash) MethodByIndex(index uint32) int {
-	return 0
+func (results *ResultsHash) MethodByIndex(index uint32) MatchMethod {
+	cResults := (*results.CResults).([]C.ResultHash)
+	return cMethodMap[cResults[index].method]
 }
 
 // Trace returns the trace route in a readable format.
 func (results *ResultsHash) Trace() string {
+	// TODO: To be implemented
 	return ""
 }
 
 // TraceByIndex returns the trace reoute in a readable format of a result
 // pointed by a given index.
 func (results *ResultsHash) TraceByIndex(index uint32) string {
+	// TODO: To be implemented
 	return ""
 }
 
@@ -187,6 +243,7 @@ func (results *ResultsHash) NoValueReasonMessage(
 // property index.
 func (results *ResultsHash) Values(
 	requiredPropertyIndex int) (values []string, err error) {
+	// TODO: To be implemented
 	return nil, nil
 }
 
@@ -273,6 +330,7 @@ func (results *ResultsHash) RequiredPropertyIndexFromName(
 // a given proprety index can have.
 func (results *ResultsHash) PropertyType(
 	requiredPropertyIndex int) reflect.Type {
+	// TODO: To be implemented
 	return nil
 }
 
@@ -303,11 +361,13 @@ func (results *ResultsHash) MatchUserAgent(ua string) error {
 // MatchEvidence performs a detection on evidence encapsulated in a EvidenceHash
 // object. This matches the C API fiftyoneDegreesResultsHashFromEvidence.
 func (results *ResultsHash) MatchEvidence(e Evidence) error {
+	// TODO: To be implemented
 	return nil
 }
 
 // MatchDeviceId performs a detection on a given device id. This matches
 // the C API fiftyoneDegreesResultsHashFromDeviceId
 func (results *ResultsHash) MatchDeviceId(id string) error {
+	// TODO: To be implemented
 	return nil
 }
