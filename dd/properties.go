@@ -19,3 +19,7 @@ func NewPropertiesRequired(
 	props.string = C.CString(properties)
 	return PropertiesRequired{&props}
 }
+
+func (properties *PropertiesRequired) Properties() string {
+	return C.GoString(properties.CPtr.string)
+}
