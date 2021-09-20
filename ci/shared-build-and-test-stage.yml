@@ -5,7 +5,7 @@ parameters:
   default: 'On'
 - name: goVersion
   type: string
-  default: '1.17'
+  default: '1.17.1'
 
 stages:
 - stage: Linux
