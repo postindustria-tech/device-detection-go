@@ -20,5 +20,10 @@ func NewResourceManager() *ResourceManager {
 // Manager.
 func (manager *ResourceManager) Free() error {
 	_, err := C.ResourceManagerFree(manager.CPtr)
+	// If successfully freed the resource manager. Set the pointer to nil.
+	// If not, keep the pointer for future reference.
+	if err == nil {
+		manager.CPtr = nil
+	}
 	return err
 }
