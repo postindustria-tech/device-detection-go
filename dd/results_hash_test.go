@@ -390,3 +390,32 @@ func TestValuesStringInsufficientSize(t *testing.T) {
 	// Execute the test with different performance profiles
 	testDifferentPerformanceProfiles(testFunc, t)
 }
+
+// Test that resource finalizer will panic if a pointer to
+// C resource has not been freed
+func TestResultsFinalizer(t *testing.T) {
+	var testFunc TestFunc = func(manager *ResourceManager, t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Error("Results finalizer did not panic.")
+			}
+		}()
+
+		// Create results hash
+		results, err := NewResultsHash(manager, 1, 0)
+		if err != nil {
+			t.Error("Failed to create results hash object.")
+		}
+
+		// Perform finalizer on live results
+		resultsFinalizer(results)
+
+		// Free results hash
+		err = results.Free()
+		if err != nil {
+			t.Error("Failed to free results hash object.")
+		}
+	}
+	// Execute the test with different performance profiles
+	testDifferentPerformanceProfiles(testFunc, t)
+}

@@ -9,7 +9,6 @@ import (
 	"testing"
 )
 
-// TODO: Move the below to a sub package or common test file.
 // test User-Agents
 const uaMobile = "Mozilla/5.0 (iPhone; CPU iPhone OS 7_1 like Mac OS X) " +
 	"AppleWebKit/537.51.2 (KHTML, like Gecko) Version/7.0 Mobile/11D167 " +

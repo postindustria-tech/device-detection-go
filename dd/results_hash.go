@@ -8,6 +8,7 @@ import "C"
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"unsafe"
 )
 
@@ -39,25 +40,37 @@ type ResultsHash struct {
 }
 
 /* Constructor and Destructor */
+
+// resultsFinalizer check if C resource has been explicitly
+// freed by Free method. Panic if it is not.
+func resultsFinalizer(res *ResultsHash) {
+	if res.CPtr != nil {
+		panic("ERROR: ResultsHash should be freed explicitly by " +
+			"its Free method.")
+	}
+}
+
 // NewResultsHash create a new ResultsHash object. This matches the C API
 // fiftyoneDegreesResultsHashCreate.
 func NewResultsHash(
 	manager *ResourceManager,
 	uaCapacity uint32,
-	overridesCapacity uint32) (results ResultsHash, err error) {
+	overridesCapacity uint32) (results *ResultsHash, err error) {
 	r, e := C.ResultsHashCreate(
 		manager.CPtr,
 		C.uint(uaCapacity),
 		C.uint(overridesCapacity))
 	if e != nil {
-		return ResultsHash{nil, nil}, e
+		return &ResultsHash{nil, nil}, e
 	}
 
 	// Map the items list to Go slice. This is done once so every access to
 	// each result won't have to cast and create the slice again.
 	var cResults interface{} = (*[1 << shiftCount32bit]C.ResultHash)(
 		unsafe.Pointer(r.items))[:r.capacity:r.capacity]
-	return ResultsHash{r, &cResults}, nil
+	res := &ResultsHash{r, &cResults}
+	runtime.SetFinalizer(res, resultsFinalizer)
+	return res, nil
 }
 
 // Free free the resource allocated in the C layer.

@@ -13,11 +13,11 @@ type PropertiesRequired struct {
 
 // NewPropertiesRequired creates a new PropertiesRequired object.
 func NewPropertiesRequired(
-	properties string) PropertiesRequired {
+	properties string) *PropertiesRequired {
 	// Create C properties required
 	props := C.PropertiesDefault
 	props.string = C.CString(properties)
-	return PropertiesRequired{&props}
+	return &PropertiesRequired{&props}
 }
 
 func (properties *PropertiesRequired) Properties() string {
