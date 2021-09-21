@@ -131,6 +131,15 @@ func (config *ConfigHash) SetUpdateMatchedUserAgent(update bool) {
 	}
 }
 
+// SetAllowUnmatched set whether unmatched should be allowed
+func (config *ConfigHash) SetAllowUnmatched(allow bool) {
+	if allow {
+		config.CPtr.b.allowUnmatched = C.IntToBool(1)
+	} else {
+		config.CPtr.b.allowUnmatched = C.IntToBool(0)
+	}
+}
+
 /* Getters */
 
 // PerformanceProfile get the configured performance profile
@@ -213,6 +222,12 @@ func (config *ConfigHash) UseUpperPrefixHeaders() bool {
 // User-Agent should be enabled
 func (config *ConfigHash) UpdateMatchedUserAgent() bool {
 	i := int(C.BoolToInt(config.CPtr.b.updateMatchedUserAgent))
+	return cIntToBool(i)
+}
+
+// AllowUnmatched returns whether unmatched should be allowed
+func (config *ConfigHash) AllowUnmatched() bool {
+	i := int(C.BoolToInt(config.CPtr.b.allowUnmatched))
 	return cIntToBool(i)
 }
 
