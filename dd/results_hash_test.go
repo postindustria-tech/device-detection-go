@@ -12,10 +12,6 @@ type TestFunc func(manager *ResourceManager, t *testing.T)
 // This is a decorator method which take a test function and execute it with
 // different performance profile
 func testDifferentPerformanceProfiles(testFunc TestFunc, t *testing.T) {
-	// TODO: This should be replaced by a function that automatically search for
-	// correct file name.
-	// Get the data file Path
-	dataFilePath := "./device-detection-cxx/device-detection-data/51Degrees-LiteV4.1.hash"
 	data := []PerformanceProfile{
 		Default,
 		LowMemory,
@@ -35,7 +31,7 @@ func testDifferentPerformanceProfiles(testFunc TestFunc, t *testing.T) {
 			manager,
 			*config,
 			"",
-			dataFilePath,
+			testDataFilePath,
 		)
 		if err != nil {
 			log.Fatalf("Failed to initialize resource manager from file \"%s\"\n.",
