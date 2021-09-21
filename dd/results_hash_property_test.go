@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-const dataFilePath = "./device-detection-cxx/device-detection-data/51Degrees-LiteV4.1.hash"
-
 func initResourceManager(
 	properties string,
 	t *testing.T) *ResourceManager {
@@ -19,11 +17,11 @@ func initResourceManager(
 		manager,
 		*config,
 		properties,
-		dataFilePath,
+		testDataFilePath,
 	)
 	if err != nil {
 		t.Errorf("Failed to initialize resource manager from file \"%s\"\n.",
-			dataFilePath)
+			testDataFilePath)
 	}
 	return manager
 }

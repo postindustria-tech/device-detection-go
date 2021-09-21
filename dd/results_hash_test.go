@@ -35,7 +35,7 @@ func testDifferentPerformanceProfiles(testFunc TestFunc, t *testing.T) {
 		)
 		if err != nil {
 			log.Fatalf("Failed to initialize resource manager from file \"%s\"\n.",
-				dataFilePath)
+				testDataFilePath)
 		}
 		// Run the test
 		testFunc(manager, t)
