@@ -59,81 +59,54 @@ func TestNewConfigHashSetGetNumeric(t *testing.T) {
 	}
 }
 
-func TestNewConfigHashSetGetBooleanFalse(t *testing.T) {
-	config := NewConfigHash(Default)
-	config.SetUsePerformanceGraph(false)
-	config.SetUsePredictiveGraph(false)
-	config.SetTraceRoute(false)
-	config.SetUseUpperPrefixHeaders(false)
-	config.SetUpdateMatchedUserAgent(false)
+func TestNewConfigHashSetGetBoolean(t *testing.T) {
+	// Test cases
+	data := []bool{true, false}
 
-	actualUsePerf := config.UsePerformanceGraph()
-	if actualUsePerf {
-		t.Errorf("Expected UsePerformanceGraph to be false but get \"%t\"\n",
-			actualUsePerf)
-	}
+	for _, testData := range data {
+		config := NewConfigHash(Default)
+		config.SetUsePerformanceGraph(testData)
+		config.SetUsePredictiveGraph(testData)
+		config.SetTraceRoute(testData)
+		config.SetUseUpperPrefixHeaders(testData)
+		config.SetUpdateMatchedUserAgent(testData)
+		config.SetAllowUnmatched(testData)
 
-	actualUsePred := config.UsePredictiveGraph()
-	if actualUsePred {
-		t.Errorf("Expected UsePredictiveGraph to be false but get \"%t\"\n",
-			actualUsePred)
-	}
+		actualUsePerf := config.UsePerformanceGraph()
+		if actualUsePerf != testData {
+			t.Errorf("Expected UsePerformanceGraph to be %t but get \"%t\"\n",
+				testData, actualUsePerf)
+		}
 
-	actualTraceRoute := config.TraceRoute()
-	if actualTraceRoute {
-		t.Errorf("Expected TraceRoute to be false but get \"%t\"\n",
-			actualTraceRoute)
-	}
+		actualUsePred := config.UsePredictiveGraph()
+		if actualUsePred != testData {
+			t.Errorf("Expected UsePredictiveGraph to be %t but get \"%t\"\n",
+				testData, actualUsePred)
+		}
 
-	actualUseUpperPrefixHeaders := config.UseUpperPrefixHeaders()
-	if actualUseUpperPrefixHeaders {
-		t.Errorf("Expected UseUpperPrefixHeaders to be false but get \"%t\"\n",
-			actualUseUpperPrefixHeaders)
-	}
+		actualTraceRoute := config.TraceRoute()
+		if actualTraceRoute != testData {
+			t.Errorf("Expected TraceRoute to be %t but get \"%t\"\n",
+				testData, actualTraceRoute)
+		}
 
-	actualUpdateMatchedUserAgent := config.UpdateMatchedUserAgent()
-	if actualUpdateMatchedUserAgent {
-		t.Errorf("Expected UpdateMatchedUserAgent to be false but get \"%t\"\n",
-			actualUpdateMatchedUserAgent)
-	}
-}
+		actualUseUpperPrefixHeaders := config.UseUpperPrefixHeaders()
+		if actualUseUpperPrefixHeaders != testData {
+			t.Errorf("Expected UseUpperPrefixHeaders to be %t but get \"%t\"\n",
+				testData, actualUseUpperPrefixHeaders)
+		}
 
-func TestNewConfigHashSetGetBooleanTrue(t *testing.T) {
-	config := NewConfigHash(Default)
-	config.SetUsePerformanceGraph(true)
-	config.SetUsePredictiveGraph(true)
-	config.SetTraceRoute(true)
-	config.SetUseUpperPrefixHeaders(true)
-	config.SetUpdateMatchedUserAgent(true)
+		actualUpdateMatchedUserAgent := config.UpdateMatchedUserAgent()
+		if actualUpdateMatchedUserAgent != testData {
+			t.Errorf("Expected UpdateMatchedUserAgent to be %t but get \"%t\"\n",
+				testData, actualUpdateMatchedUserAgent)
+		}
 
-	actualUsePerf := config.UsePerformanceGraph()
-	if !actualUsePerf {
-		t.Errorf("Expected UsePerformanceGraph to be true but get \"%t\"\n",
-			actualUsePerf)
-	}
-
-	actualUsePred := config.UsePredictiveGraph()
-	if !actualUsePred {
-		t.Errorf("Expected UsePredictiveGraph to be true but get \"%t\"\n",
-			actualUsePred)
-	}
-
-	actualTraceRoute := config.TraceRoute()
-	if !actualTraceRoute {
-		t.Errorf("Expected TraceRoute to be true but get \"%t\"\n",
-			actualTraceRoute)
-	}
-
-	actualUseUpperPrefixHeaders := config.UseUpperPrefixHeaders()
-	if !actualUseUpperPrefixHeaders {
-		t.Errorf("Expected UseUpperPrefixHeaders to be true but get \"%t\"\n",
-			actualUseUpperPrefixHeaders)
-	}
-
-	actualUpdateMatchedUserAgent := config.UpdateMatchedUserAgent()
-	if !actualUpdateMatchedUserAgent {
-		t.Errorf("Expected UpdateMatchedUserAgent to be true but get \"%t\"\n",
-			actualUpdateMatchedUserAgent)
+		actualAllowUnmatched := config.AllowUnmatched()
+		if actualAllowUnmatched != testData {
+			t.Errorf("Expected AllowUnmatched to be %t but get \"%t\"\n",
+				testData, actualAllowUnmatched)
+		}
 	}
 }
 
