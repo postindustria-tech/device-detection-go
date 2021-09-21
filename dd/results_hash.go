@@ -150,7 +150,7 @@ func (results *ResultsHash) MatchedNodes() int {
 }
 
 // Method returns the method used to determine the match result.
-func (results *ResultsHash) Method(index uint32) MatchMethod {
+func (results *ResultsHash) Method() MatchMethod {
 	method := results.MethodByIndex(0)
 	cResults := (*results.CResults).([]C.ResultHash)
 	for _, cResult := range cResults {
@@ -193,10 +193,10 @@ func (results *ResultsHash) UserAgent(index int) string {
 	return C.GoString(cResults[index].b.matchedUserAgent)
 }
 
-// HasValues returns whether the last detection returns any matched value
+// HasValuesByIndex returns whether the last detection returns any matched value
 // for a given property index. This matches the C API
 // fiftyoneDegreesResultsHashGetHasValues
-func (results *ResultsHash) HasValues(
+func (results *ResultsHash) HasValuesByIndex(
 	requiredPropertyIndex int) (hasValues bool, err error) {
 	exp := NewException()
 	r, e := C.ResultsHashGetHasValues(
@@ -212,11 +212,26 @@ func (results *ResultsHash) HasValues(
 	return bool(r), nil
 }
 
-// NoValueReasonMessage returns the no value message of a given property
+// HasValuesByIndex returns whether the last detection returns any matched value
+// for a given property name.
+func (results *ResultsHash) HasValues(
+	propertyName string) (hasValues bool, err error) {
+	index, e := results.RequiredPropertyIndexFromName(propertyName)
+	if e != nil {
+		return false, e
+	}
+	v, e := results.HasValuesByIndex(index)
+	if e != nil {
+		return false, e
+	}
+	return v, nil
+}
+
+// NoValueReasonMessageByIndex returns the no value message of a given property
 // index. This matches a combination of the C APIs
 // fiftyoneDegreesResultsNoValueReason and
 // fiftyoneDegreesResultsHashGetNoValueReasonMessage
-func (results *ResultsHash) NoValueReasonMessage(
+func (results *ResultsHash) NoValueReasonMessageByIndex(
 	requiredPropertyIndex int) (message string, err error) {
 	exp := NewException()
 	reason, e := C.ResultsHashGetNoValueReason(
@@ -237,6 +252,23 @@ func (results *ResultsHash) NoValueReasonMessage(
 	}
 
 	return C.GoString(m), nil
+}
+
+// NoValueReasonMessage returns the no value message of a given property
+// name.
+func (results *ResultsHash) NoValueReasonMessage(
+	propertyName string) (message string, err error) {
+	index, e := results.RequiredPropertyIndexFromName(propertyName)
+	if e != nil {
+		return "", e
+	}
+
+	reason, e := results.NoValueReasonMessageByIndex(index)
+	if e != nil {
+		return "", e
+	}
+
+	return reason, nil
 }
 
 // Values returns a list of values resulted from a detection for a given
