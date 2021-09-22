@@ -43,8 +43,10 @@ func GetFilePath(dir string, names []string) (found string, err error) {
 	})
 
 	// Return error not exist to indicate no matching find found.
-	if foundPath == "" && e != fs.ErrExist {
+	if e != fs.ErrExist {
 		e = fs.ErrNotExist
+	} else {
+		e = nil
 	}
 	return foundPath, e
 }

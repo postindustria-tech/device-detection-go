@@ -1,9 +1,9 @@
 package dd
 
 import (
-	"io/fs"
 	"log"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -34,16 +34,9 @@ func TestMain(m *testing.M) {
 	filePath, err := GetFilePath(
 		"device-detection-cxx",
 		dataFiles)
-	if err != nil && err != fs.ErrExist {
-		fileList := ""
-		for _, file := range dataFiles {
-			if fileList != "" {
-				fileList += ", "
-			}
-			fileList += file
-		}
+	if err != nil {
 		log.Fatalf("Could not find any file that matches any of \"%s\".\n",
-			fileList)
+			strings.Join(dataFiles, ", "))
 	}
 
 	testDataFilePath = filePath
