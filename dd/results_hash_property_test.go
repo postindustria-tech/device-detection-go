@@ -30,10 +30,7 @@ func freeResourceManager(
 	manager *ResourceManager,
 	t *testing.T) {
 	// Free the resource manager
-	err := manager.Free()
-	if err != nil {
-		t.Error("Failed to free resource manager.")
-	}
+	manager.Free()
 }
 
 // This tests available properties are returned correctly
@@ -45,15 +42,9 @@ func TestAvailableProperties(t *testing.T) {
 	}{"IsMobile", "IsMobile", 1}
 	manager := initResourceManager(data.properties, t)
 	// Create results hash
-	results, err := NewResultsHash(manager, 1, 0)
-	if err != nil {
-		t.Error("Failed to create results hash object.")
-	}
+	results := NewResultsHash(manager, 1, 0)
 
-	available, err := results.AvailableProperties()
-	if err != nil {
-		t.Error("Failed to obtain available properties.")
-	}
+	available := results.AvailableProperties()
 
 	if len(available) != data.expectedAvailable {
 		t.Errorf("Expected to have %d properties but get %d.\n",
@@ -67,10 +58,7 @@ func TestAvailableProperties(t *testing.T) {
 	}
 
 	// Free results hash
-	err = results.Free()
-	if err != nil {
-		t.Error("Failed to free results hash object.")
-	}
+	results.Free()
 
 	// Free resource manager
 	freeResourceManager(manager, t)
@@ -92,15 +80,9 @@ func TestPropertyName(t *testing.T) {
 
 	manager := initResourceManager(propertiesString, t)
 	// Create results hash
-	results, err := NewResultsHash(manager, 1, 0)
-	if err != nil {
-		t.Error("Failed to create results hash object.")
-	}
+	results := NewResultsHash(manager, 1, 0)
 
-	available, err := results.AvailableProperties()
-	if err != nil {
-		t.Error("Failed to obtain available properties.")
-	}
+	available := results.AvailableProperties()
 
 	if len(available) != len(properties) {
 		t.Errorf("Expected to have %d properties but get %d.\n",
@@ -109,10 +91,7 @@ func TestPropertyName(t *testing.T) {
 	}
 
 	for i, a := range available {
-		name, err := results.PropertyName(i)
-		if err != nil {
-			t.Errorf("Failed to obtain property name for index %d.\n", i)
-		}
+		name := results.PropertyName(i)
 
 		if !strings.EqualFold(a, name) {
 			t.Errorf("Expected property \"%s\" but get \"%s\".\n",
@@ -128,10 +107,7 @@ func TestPropertyName(t *testing.T) {
 	}
 
 	// Free results hash
-	err = results.Free()
-	if err != nil {
-		t.Error("Failed to free results hash object.")
-	}
+	results.Free()
 
 	// Free resource manager
 	freeResourceManager(manager, t)
@@ -153,15 +129,9 @@ func TestRequiredPropertyIndexFromName(t *testing.T) {
 
 	manager := initResourceManager(propertiesString, t)
 	// Create results hash
-	results, err := NewResultsHash(manager, 1, 0)
-	if err != nil {
-		t.Error("Failed to create results hash object.")
-	}
+	results := NewResultsHash(manager, 1, 0)
 
-	available, err := results.AvailableProperties()
-	if err != nil {
-		t.Error("Failed to obtain available properties.")
-	}
+	available := results.AvailableProperties()
 
 	if len(available) != len(properties) {
 		t.Errorf("Expected to have %d properties but get %d.\n",
@@ -170,10 +140,7 @@ func TestRequiredPropertyIndexFromName(t *testing.T) {
 	}
 
 	for i, name := range available {
-		index, err := results.RequiredPropertyIndexFromName(name)
-		if err != nil {
-			t.Errorf("Failed to obtain property name for index %d.\n", i)
-		}
+		index := results.RequiredPropertyIndexFromName(name)
 
 		if index != i {
 			t.Errorf("Expected index %d for property \"%s\" but get %d.\n ",
@@ -184,10 +151,7 @@ func TestRequiredPropertyIndexFromName(t *testing.T) {
 	}
 
 	// Free results hash
-	err = results.Free()
-	if err != nil {
-		t.Error("Failed to free results hash object.")
-	}
+	results.Free()
 
 	// Free resource manager
 	freeResourceManager(manager, t)

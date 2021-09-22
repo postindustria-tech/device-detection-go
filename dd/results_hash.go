@@ -55,14 +55,11 @@ func resultsFinalizer(res *ResultsHash) {
 func NewResultsHash(
 	manager *ResourceManager,
 	uaCapacity uint32,
-	overridesCapacity uint32) (results *ResultsHash, err error) {
-	r, e := C.ResultsHashCreate(
+	overridesCapacity uint32) *ResultsHash {
+	r := C.ResultsHashCreate(
 		manager.CPtr,
 		C.uint(uaCapacity),
 		C.uint(overridesCapacity))
-	if e != nil {
-		return &ResultsHash{nil, nil}, e
-	}
 
 	// Map the items list to Go slice. This is done once so every access to
 	// each result won't have to cast and create the slice again.
@@ -70,18 +67,13 @@ func NewResultsHash(
 		unsafe.Pointer(r.items))[:r.capacity:r.capacity]
 	res := &ResultsHash{r, &cResults}
 	runtime.SetFinalizer(res, resultsFinalizer)
-	return res, nil
+	return res
 }
 
 // Free free the resource allocated in the C layer.
-func (results *ResultsHash) Free() error {
-	_, err := C.ResultsHashFree(results.CPtr)
-	// If successfully freed the results, set the C pointer to nil.
-	// Else, keep the pointer for future reference.
-	if err == nil {
-		results.CPtr = nil
-	}
-	return err
+func (results *ResultsHash) Free() {
+	C.ResultsHashFree(results.CPtr)
+	results.CPtr = nil
 }
 
 /* Metric Getters */
@@ -212,11 +204,8 @@ func (results *ResultsHash) UserAgent(index int) string {
 func (results *ResultsHash) HasValuesByIndex(
 	requiredPropertyIndex int) (hasValues bool, err error) {
 	exp := NewException()
-	r, e := C.ResultsHashGetHasValues(
+	r := C.ResultsHashGetHasValues(
 		results.CPtr, C.int(requiredPropertyIndex), exp.CPtr)
-	if e != nil {
-		return false, e
-	}
 
 	// Check exception
 	if !exp.IsOkay() {
@@ -229,10 +218,7 @@ func (results *ResultsHash) HasValuesByIndex(
 // for a given property name.
 func (results *ResultsHash) HasValues(
 	propertyName string) (hasValues bool, err error) {
-	index, e := results.RequiredPropertyIndexFromName(propertyName)
-	if e != nil {
-		return false, e
-	}
+	index := results.RequiredPropertyIndexFromName(propertyName)
 	v, e := results.HasValuesByIndex(index)
 	if e != nil {
 		return false, e
@@ -247,11 +233,8 @@ func (results *ResultsHash) HasValues(
 func (results *ResultsHash) NoValueReasonMessageByIndex(
 	requiredPropertyIndex int) (message string, err error) {
 	exp := NewException()
-	reason, e := C.ResultsHashGetNoValueReason(
+	reason := C.ResultsHashGetNoValueReason(
 		results.CPtr, C.int(requiredPropertyIndex), exp.CPtr)
-	if e != nil {
-		return "", e
-	}
 
 	// Check exception
 	if !exp.IsOkay() {
@@ -259,10 +242,7 @@ func (results *ResultsHash) NoValueReasonMessageByIndex(
 	}
 
 	// Get no value reason message
-	m, e := C.ResultsHashGetNoValueReasonMessage(reason)
-	if e != nil {
-		return "", e
-	}
+	m := C.ResultsHashGetNoValueReasonMessage(reason)
 
 	return C.GoString(m), nil
 }
@@ -271,16 +251,11 @@ func (results *ResultsHash) NoValueReasonMessageByIndex(
 // name.
 func (results *ResultsHash) NoValueReasonMessage(
 	propertyName string) (message string, err error) {
-	index, e := results.RequiredPropertyIndexFromName(propertyName)
-	if e != nil {
-		return "", e
-	}
-
+	index := results.RequiredPropertyIndexFromName(propertyName)
 	reason, e := results.NoValueReasonMessageByIndex(index)
 	if e != nil {
 		return "", e
 	}
-
 	return reason, nil
 }
 
@@ -301,17 +276,13 @@ func (results *ResultsHash) ValuesString(
 	// Create slice based on specified size
 	buffer := make([]C.char, size)
 	exp := NewException()
-	actualSize, e := C.ResultsHashGetValuesString(
+	actualSize := C.ResultsHashGetValuesString(
 		results.CPtr,
 		C.CString(propertyName),
 		&buffer[0],
 		C.ulong(size),
 		C.CString(separator),
 		exp.CPtr)
-	// Check err
-	if e != nil {
-		return "", uint64(actualSize), e
-	}
 
 	// Check exception
 	if !exp.IsOkay() {
@@ -324,7 +295,7 @@ func (results *ResultsHash) ValuesString(
 
 // AvailableProperties returns a list of available properties. The index
 // of this property can be used obtain further details about the property.
-func (results *ResultsHash) AvailableProperties() (available []string, err error) {
+func (results *ResultsHash) AvailableProperties() []string {
 	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
 	cAvailable := dataSet.b.b.available
 	availableCount := int(cAvailable.count)
@@ -332,43 +303,33 @@ func (results *ResultsHash) AvailableProperties() (available []string, err error
 	// Loop through the C available properties list and add it to the
 	// new Go available array.
 	for i := 0; i < availableCount; i++ {
-		name, e := C.PropertiesGetNameFromRequiredIndex(cAvailable, C.int(i))
-		if err != nil {
-			return a, e
-		}
-
+		name := C.PropertiesGetNameFromRequiredIndex(cAvailable, C.int(i))
 		a = append(a, C.GoString(&name.value))
 	}
-	return a, nil
+	return a
 }
 
 // PropertyName returns the name of a property at a given index.
 func (results *ResultsHash) PropertyName(
-	requiredPropertyIndex int) (name string, err error) {
+	requiredPropertyIndex int) string {
 	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
 	cAvailable := dataSet.b.b.available
-	n, e := C.PropertiesGetNameFromRequiredIndex(
+	n := C.PropertiesGetNameFromRequiredIndex(
 		cAvailable, C.int(requiredPropertyIndex))
-	if e != nil {
-		return "", e
-	}
-	return C.GoString(&n.value), nil
+	return C.GoString(&n.value)
 }
 
 // RequiredPropertyIndexFromName returns the required index of a property
 // using its name
 func (results *ResultsHash) RequiredPropertyIndexFromName(
-	propertyName string) (index int, err error) {
+	propertyName string) int {
 	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
 	cAvailable := dataSet.b.b.available
 	cName := C.CString(propertyName)
-	i, e := C.PropertiesGetRequiredPropertyIndexFromName(
+	i := C.PropertiesGetRequiredPropertyIndexFromName(
 		cAvailable, cName)
-	if e != nil {
-		return -1, e
-	}
 	C.free(unsafe.Pointer(cName))
-	return int(i), nil
+	return int(i)
 }
 
 // PropertyType returns the type that a value of a property determined by
@@ -385,15 +346,11 @@ func (results *ResultsHash) PropertyType(
 func (results *ResultsHash) MatchUserAgent(ua string) error {
 	cUserAgent := C.CString(ua)
 	e := NewException()
-	_, err := C.ResultsHashFromUserAgent(
+	C.ResultsHashFromUserAgent(
 		results.CPtr,
 		cUserAgent,
 		C.strlen(cUserAgent),
 		e.CPtr)
-	// Check error
-	if err != nil {
-		return err
-	}
 
 	// Check exception
 	if !e.IsOkay() {

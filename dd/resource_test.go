@@ -13,8 +13,5 @@ func TestResourceFinalizer(t *testing.T) {
 	manager := NewResourceManager()
 	// Perform finalizer on live resource
 	resourceFinalizer(manager)
-	err := manager.Free()
-	if err != nil {
-		t.Error("Failed to free resource manager.")
-	}
+	manager.Free()
 }

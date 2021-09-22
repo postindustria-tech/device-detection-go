@@ -242,20 +242,16 @@ func (config *ConfigHash) SizeManagerFromFile(
 	fileName string) (size uint64, err error) {
 	exp := NewException()
 	cFileName := C.CString(fileName)
-	s, e := C.HashSizeManagerFromFile(
+	s := C.HashSizeManagerFromFile(
 		config.CPtr,
 		NewPropertiesRequired(properties).CPtr,
 		cFileName,
 		exp.CPtr,
 	)
 	C.free(unsafe.Pointer(cFileName))
-	// Check if error occured
-	if e != nil {
-		return 0, e
-	}
 	// Check if no exception was thrown
 	if !exp.IsOkay() {
-		fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+		return 0, fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
 	}
 	return uint64(s), nil
 }

@@ -42,9 +42,6 @@ func testDifferentPerformanceProfiles(testFunc TestFunc, t *testing.T) {
 
 		// Free the resource manager
 		manager.Free()
-		if err != nil {
-			log.Fatalln("Failed to free resource manager.")
-		}
 	}
 }
 
@@ -53,16 +50,10 @@ func testDifferentPerformanceProfiles(testFunc TestFunc, t *testing.T) {
 func TestResultsHashCreateFree(t *testing.T) {
 	var testFunc TestFunc = func(manager *ResourceManager, t *testing.T) {
 		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Free results hash
-		err = results.Free()
-		if err != nil {
-			t.Error("Failed to free results hash object.")
-		}
+		results.Free()
 	}
 	// Execute the test with different performance profiles
 	testDifferentPerformanceProfiles(testFunc, t)
@@ -81,19 +72,10 @@ func TestMatchUserAgent(t *testing.T) {
 		}
 
 		// Create results hash
-		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Free results hash at the end
-		defer func() {
-			err = results.Free()
-			if err != nil {
-				t.Error("Failed to free results hash object.")
-			}
-		}()
+		defer results.Free()
 
 		for _, testData := range data {
 			if err := results.MatchUserAgent(testData.ua); err != nil {
@@ -125,18 +107,10 @@ func TestMatchUserAgent(t *testing.T) {
 func TestMatchMetrics(t *testing.T) {
 	var testFunc TestFunc = func(manager *ResourceManager, t *testing.T) {
 		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Free results hash at the end
-		defer func() {
-			err = results.Free()
-			if err != nil {
-				t.Error("Failed to free results hash object.")
-			}
-		}()
+		defer results.Free()
 
 		if err := results.MatchUserAgent(uaMobile); err != nil {
 			t.Errorf("Failed to perform detection on User-Agent \"%s\".\n",
@@ -189,18 +163,10 @@ func TestMatchMetrics(t *testing.T) {
 func TestHasValues(t *testing.T) {
 	var testFunc TestFunc = func(manager *ResourceManager, t *testing.T) {
 		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Free results hash at the end
-		defer func() {
-			err = results.Free()
-			if err != nil {
-				t.Error("Failed to free results hash object.")
-			}
-		}()
+		defer results.Free()
 
 		if err := results.MatchUserAgent(uaMobile); err != nil {
 			t.Errorf("Failed to perform detection on User-Agent \"%s\".\n",
@@ -229,18 +195,10 @@ func TestHasValues(t *testing.T) {
 func TestHasNoValues(t *testing.T) {
 	var testFunc TestFunc = func(manager *ResourceManager, t *testing.T) {
 		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Free results hash at the end
-		defer func() {
-			err = results.Free()
-			if err != nil {
-				t.Error("Failed to free results hash object.")
-			}
-		}()
+		defer results.Free()
 
 		if err := results.MatchUserAgent(""); err != nil {
 			t.Errorf("Failed to perform detection on User-Agent \"%s\".\n",
@@ -302,18 +260,10 @@ func TestValuesString(t *testing.T) {
 		}{"IsMobile", "true"}
 
 		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Free results hash at the end
-		defer func() {
-			err = results.Free()
-			if err != nil {
-				t.Error("Failed to free results hash object.")
-			}
-		}()
+		defer results.Free()
 
 		if err := results.MatchUserAgent(uaMobile); err != nil {
 			t.Errorf("Failed to perform detection on User-Agent \"%s\".\n",
@@ -349,18 +299,10 @@ func TestValuesStringInsufficientSize(t *testing.T) {
 		}{"IsMobile", uint64(len("true"))}
 
 		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Free results hash at the end
-		defer func() {
-			err = results.Free()
-			if err != nil {
-				t.Error("Failed to free results hash object.")
-			}
-		}()
+		defer results.Free()
 
 		if err := results.MatchUserAgent(uaMobile); err != nil {
 			t.Errorf("Failed to perform detection on User-Agent \"%s\".\n",
@@ -402,19 +344,13 @@ func TestResultsFinalizer(t *testing.T) {
 		}()
 
 		// Create results hash
-		results, err := NewResultsHash(manager, 1, 0)
-		if err != nil {
-			t.Error("Failed to create results hash object.")
-		}
+		results := NewResultsHash(manager, 1, 0)
 
 		// Perform finalizer on live results
 		resultsFinalizer(results)
 
 		// Free results hash
-		err = results.Free()
-		if err != nil {
-			t.Error("Failed to free results hash object.")
-		}
+		results.Free()
 	}
 	// Execute the test with different performance profiles
 	testDifferentPerformanceProfiles(testFunc, t)
