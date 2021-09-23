@@ -25,8 +25,27 @@ const uaMediaHub = "Mozilla/5.0 (Linux; Android 4.4.2; X7 Quad Core " +
 const testLiteDataFile = "51Degrees-LiteV4.1.hash"
 const testEnterpriseDataFile = "Enterprise-HashV41.hash"
 
+// Func to be iterated with different performance profiles
+type PerfProfileFunc func(perf PerformanceProfile, t *testing.T)
+
 // Test variables
 var testDataFilePath string = ""
+
+// performMultiPerfProfiles executes input function with different
+// performance profiles
+func performMultiPerfProfiles(perfFunc PerfProfileFunc, t *testing.T) {
+	data := []PerformanceProfile{
+		Default,
+		LowMemory,
+		Balanced,
+		BalancedTemp,
+		HighPerformance,
+		InMemory,
+	}
+	for _, perf := range data {
+		perfFunc(perf, t)
+	}
+}
 
 func TestMain(m *testing.M) {
 	// Search for test data files

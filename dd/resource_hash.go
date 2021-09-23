@@ -9,30 +9,37 @@ import (
 	"unsafe"
 )
 
-// InitFromFile initializes a resource manager based on a given data file. The
-// input properties is a comma separated string list. This matches the C API
+// InitFromFile initializes a resource manager based on a given data file path.
+// The input properties is a comma separated string list. This matches the C API
 // fiftyoneDegreesHashInitManagerFromFile.
 func InitManagerFromFile(
 	manager *ResourceManager,
 	config ConfigHash,
 	properties string,
-	fileName string) error {
+	filePath string) error {
 
 	e := NewException()
-	cName := C.CString(fileName)
-	defer C.free(unsafe.Pointer(cName))
+	cPath := C.CString(filePath)
+	defer C.free(unsafe.Pointer(cPath))
 	propsRequired := NewPropertiesRequired(properties)
 	defer propsRequired.Free()
-	_ = C.HashInitManagerFromFile(
+	s := C.HashInitManagerFromFile(
 		manager.CPtr,
 		config.CPtr,
 		propsRequired.CPtr,
-		cName,
+		cPath,
 		e.CPtr)
 
 	// Check exception
 	if !e.IsOkay() {
 		return fmt.Errorf(C.GoString(C.ExceptionGetMessage(e.CPtr)))
+	}
+
+	// Check status code
+	if s != C.SUCCESS {
+		cMessage := C.StatusGetMessage(s, cPath)
+		defer C.MemoryStandardFree(unsafe.Pointer(cMessage))
+		return fmt.Errorf(C.GoString(cMessage))
 	}
 
 	return nil

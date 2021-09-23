@@ -239,16 +239,16 @@ func (config *ConfigHash) AllowUnmatched() bool {
 // fiftyoneDegreeshashSizeManagerFromFile.
 func (config *ConfigHash) SizeManagerFromFile(
 	properties string,
-	fileName string) (size uint64, err error) {
+	filePath string) (size uint64, err error) {
 	exp := NewException()
-	cFileName := C.CString(fileName)
-	defer C.free(unsafe.Pointer(cFileName))
+	cFilePath := C.CString(filePath)
+	defer C.free(unsafe.Pointer(cFilePath))
 	propsRequired := NewPropertiesRequired(properties)
 	defer propsRequired.Free()
 	s := C.HashSizeManagerFromFile(
 		config.CPtr,
 		propsRequired.CPtr,
-		cFileName,
+		cFilePath,
 		exp.CPtr,
 	)
 

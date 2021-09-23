@@ -7,13 +7,11 @@ package dd
 import "C"
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"runtime"
 	"unsafe"
 )
-
-// Maximum bit shift count for unsigned int 32.
-const shiftCount32bit = 32
 
 // Match method
 type MatchMethod int
@@ -58,12 +56,18 @@ func NewResultsHash(
 	overridesCapacity uint32) *ResultsHash {
 	r := C.ResultsHashCreate(
 		manager.CPtr,
-		C.uint(uaCapacity),
-		C.uint(overridesCapacity))
+		C.uint32_t(uaCapacity),
+		C.uint32_t(overridesCapacity))
 
 	// Map the items list to Go slice. This is done once so every access to
 	// each result won't have to cast and create the slice again.
-	var cResults interface{} = (*[1 << shiftCount32bit]C.ResultHash)(
+	//
+	// The size of C.ResultHash array is governed by the address space and
+	// and max value of a Integer. Thus take max Integer value and divided by
+	// the size of a single C.ResultHash to make sure the total size of the array
+	// will not be bigger than the size of the address space and the max Integer
+	// value.
+	var cResults interface{} = (*[math.MaxInt32 / int(C.sizeof_ResultHash)]C.ResultHash)(
 		unsafe.Pointer(r.items))[:r.capacity:r.capacity]
 	res := &ResultsHash{r, &cResults}
 	runtime.SetFinalizer(res, resultsFinalizer)
@@ -93,63 +97,63 @@ func (results *ResultsHash) DeviceIdByIndex(index uint32) string {
 
 // Iterations returns the number of iterations carried out in order to find
 // a match.
-func (results *ResultsHash) Iterations() int {
-	iterations := 0
+func (results *ResultsHash) Iterations() int32 {
+	iterations := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
 	for _, cResult := range cResults {
-		iterations += int(cResult.iterations)
+		iterations += int32(cResult.iterations)
 	}
 	return iterations
 }
 
 // Iterations returns the number of iterations carried out in order to find
 // a match of a result pointed by an index.
-func (results *ResultsHash) IterationsByIndex(index uint32) int {
+func (results *ResultsHash) IterationsByIndex(index uint32) int32 {
 	cResults := (*results.CResults).([]C.ResultHash)
-	return int(cResults[index].iterations)
+	return int32(cResults[index].iterations)
 }
 
 // Drift returns the maximum drift for a matched substring.
-func (results *ResultsHash) Drift() int {
-	drift := 0
+func (results *ResultsHash) Drift() int32 {
+	drift := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
 	for _, cResult := range cResults {
-		drift += int(cResult.drift)
+		drift += int32(cResult.drift)
 	}
 	return drift
 }
 
 // DriftByIndex returns the drift for a matched substring of a result pointed
 // by an index.
-func (results *ResultsHash) DriftByIndex(index uint32) int {
+func (results *ResultsHash) DriftByIndex(index uint32) int32 {
 	cResults := (*results.CResults).([]C.ResultHash)
-	return int(cResults[index].drift)
+	return int32(cResults[index].drift)
 }
 
 // Difference returns the total difference between the results returned and
 // the target User-Agent.
-func (results *ResultsHash) Difference() int {
-	difference := 0
+func (results *ResultsHash) Difference() int32 {
+	difference := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
 	for _, cResult := range cResults {
-		difference += int(cResult.difference)
+		difference += int32(cResult.difference)
 	}
 	return difference
 }
 
 // DifferenceByIndex returns the difference between the result pointed by a
 // index and the target User-Agent.
-func (results *ResultsHash) DifferenceByIndex(index uint32) int {
+func (results *ResultsHash) DifferenceByIndex(index uint32) int32 {
 	cResults := (*results.CResults).([]C.ResultHash)
-	return int(cResults[index].difference)
+	return int32(cResults[index].difference)
 }
 
 // MatchedNodes returns the number of hash nodes matched within the evidence.
-func (results *ResultsHash) MatchedNodes() int {
-	matchedNodes := 0
+func (results *ResultsHash) MatchedNodes() int32 {
+	matchedNodes := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
 	for _, cResult := range cResults {
-		matchedNodes += int(cResult.matchedNodes)
+		matchedNodes += int32(cResult.matchedNodes)
 	}
 	return matchedNodes
 }
@@ -188,8 +192,8 @@ func (results *ResultsHash) TraceByIndex(index uint32) string {
 }
 
 // UserAgents returns number of User-Agents that were used in the results.
-func (results *ResultsHash) UserAgents() int {
-	return int(results.CPtr.count)
+func (results *ResultsHash) UserAgents() uint32 {
+	return uint32(results.CPtr.count)
 }
 
 // UserAgent return the user agent of a result pointed by a given index.
@@ -284,7 +288,7 @@ func (results *ResultsHash) ValuesString(
 		results.CPtr,
 		cPropertyName,
 		&buffer[0],
-		C.ulong(size),
+		C.size_t(size),
 		cSeparator,
 		exp.CPtr)
 

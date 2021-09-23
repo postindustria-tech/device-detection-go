@@ -111,7 +111,18 @@ func TestNewConfigHashSetGetBoolean(t *testing.T) {
 }
 
 func TestSizeManagerFromFile(t *testing.T) {
-	// TODO: Size the manager from file
+	testFunc := func(perf PerformanceProfile, t *testing.T) {
+		config := NewConfigHash(perf)
+		s, err := config.SizeManagerFromFile("", testDataFilePath)
+		if err != nil {
+			t.Errorf("Failed to size manager from file")
+		}
+
+		if s <= 0 {
+			t.Errorf("Expected a positive size")
+		}
+	}
+	performMultiPerfProfiles(testFunc, t)
 }
 
 func TestSizeManagerFromMemory(t *testing.T) {

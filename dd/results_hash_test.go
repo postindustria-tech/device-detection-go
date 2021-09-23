@@ -12,16 +12,7 @@ type TestFunc func(manager *ResourceManager, t *testing.T)
 // This is a decorator method which take a test function and execute it with
 // different performance profile
 func testDifferentPerformanceProfiles(testFunc TestFunc, t *testing.T) {
-	data := []PerformanceProfile{
-		Default,
-		LowMemory,
-		Balanced,
-		// BalancedTemp, // TODO: Enable once error is resolved
-		HighPerformance,
-		InMemory,
-	}
-
-	for _, perf := range data {
+	f := func(perf PerformanceProfile, t *testing.T) {
 		// Setup a resource manager
 		manager := NewResourceManager()
 		// Create config per performance
@@ -43,6 +34,7 @@ func testDifferentPerformanceProfiles(testFunc TestFunc, t *testing.T) {
 		// Free the resource manager
 		manager.Free()
 	}
+	performMultiPerfProfiles(f, t)
 }
 
 // This tests ResultsHash is created and freed
