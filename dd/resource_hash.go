@@ -20,13 +20,15 @@ func InitManagerFromFile(
 
 	e := NewException()
 	cName := C.CString(fileName)
+	defer C.free(unsafe.Pointer(cName))
+	propsRequired := NewPropertiesRequired(properties)
+	defer propsRequired.Free()
 	_ = C.HashInitManagerFromFile(
 		manager.CPtr,
 		config.CPtr,
-		NewPropertiesRequired(properties).CPtr,
+		propsRequired.CPtr,
 		cName,
 		e.CPtr)
-	C.free(unsafe.Pointer(cName))
 
 	// Check exception
 	if !e.IsOkay() {

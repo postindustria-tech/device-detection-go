@@ -275,13 +275,17 @@ func (results *ResultsHash) ValuesString(
 	separator string) (value string, actual uint64, err error) {
 	// Create slice based on specified size
 	buffer := make([]C.char, size)
+	cPropertyName := C.CString(propertyName)
+	defer C.free(unsafe.Pointer(cPropertyName))
+	cSeparator := C.CString(separator)
+	defer C.free(unsafe.Pointer(cSeparator))
 	exp := NewException()
 	actualSize := C.ResultsHashGetValuesString(
 		results.CPtr,
-		C.CString(propertyName),
+		cPropertyName,
 		&buffer[0],
 		C.ulong(size),
-		C.CString(separator),
+		cSeparator,
 		exp.CPtr)
 
 	// Check exception
@@ -326,9 +330,9 @@ func (results *ResultsHash) RequiredPropertyIndexFromName(
 	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
 	cAvailable := dataSet.b.b.available
 	cName := C.CString(propertyName)
+	defer C.free(unsafe.Pointer(cName))
 	i := C.PropertiesGetRequiredPropertyIndexFromName(
 		cAvailable, cName)
-	C.free(unsafe.Pointer(cName))
 	return int(i)
 }
 
@@ -345,6 +349,7 @@ func (results *ResultsHash) PropertyType(
 // the C API fiftyoneDegreesResultsHashFromUserAgent.
 func (results *ResultsHash) MatchUserAgent(ua string) error {
 	cUserAgent := C.CString(ua)
+	defer C.free(unsafe.Pointer(cUserAgent))
 	e := NewException()
 	C.ResultsHashFromUserAgent(
 		results.CPtr,
