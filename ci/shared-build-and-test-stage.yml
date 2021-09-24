@@ -80,7 +80,7 @@ stages:
           if ('$(platform)' -eq 'x86') {
             ./dd/scripts/prebuild.ps1 -32bit
           } else {
-            ./dd/scrtips/prebuild.ps1
+            ./dd/scripts/prebuild.ps1
           }
         displayName: 'Build device detection core binaries'
         workingDirectory: '$(Build.SourcesDirectory)'
