@@ -75,13 +75,14 @@ stages:
         displayName: 'Install golang 32bit ${{ parameters.goVersion }}'
         condition: and(succeeded(), eq(variables['platform'], 'x86'))
 
-      # Run prebuild
-      - powershell: |
-          if ('$(platform)' -eq 'x86') {
-            ./dd/scripts/prebuild.ps1 -32bit
-          } else {
-            ./dd/scripts/prebuild.ps1
-          }
+      # Run prebuild. Run powershell from bash environment via pwsh because
+      # in powershell environment the input parameters are not parsed correctly.
+      - bash: |
+          if [ '$(platform)' == 'x86' ]; then
+            pwsh -File ./dd/scripts/prebuild.ps1 -32bit
+          else
+            pwsh -File ./dd/scrtips/prebuild.ps1
+          fi
         displayName: 'Build device detection core binaries'
         workingDirectory: '$(Build.SourcesDirectory)'
 
