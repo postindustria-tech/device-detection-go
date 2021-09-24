@@ -77,7 +77,7 @@ stages:
 
       # Run prebuild
       - powershell: |
-          if [ $(platform) -eq 'x86']; then
+          if [ '$(platform)' -eq 'x86']; then
             ./dd/scripts/prebuild.ps1 -32bit
           else
             ./dd/scrtips/prebuild.ps1
