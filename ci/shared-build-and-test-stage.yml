@@ -81,7 +81,7 @@ stages:
           if [ '$(platform)' == 'x86' ]; then
             pwsh -File ./dd/scripts/prebuild.ps1 -32bit
           else
-            pwsh -File ./dd/scrtips/prebuild.ps1
+            pwsh -File ./dd/scripts/prebuild.ps1
           fi
         displayName: 'Build device detection core binaries'
         workingDirectory: '$(Build.SourcesDirectory)'
