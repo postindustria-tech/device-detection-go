@@ -271,34 +271,58 @@ func (results *ResultsHash) Values(
 	return nil, nil
 }
 
-// ValuesString returns a string of all values resulted from a detection.
-// If there are multiple values, they are separated by the specified separator.
-func (results *ResultsHash) ValuesString(
+// valuesStringWithSize returns a string of all values resulted from a detection.
+// using a default size for the buffer used to hold return string. If size is
+// smaller than actual, this reattempt with the actual size. If there are
+// multiple values, they are separated by the specified separator.
+func valuesStringWithSize(
+	results *ResultsHash,
 	propertyName string,
-	size uint64,
-	separator string) (value string, actual uint64, err error) {
-	// Create slice based on specified size
-	buffer := make([]C.char, size)
+	defaultSize uint64,
+	separator string) (value string, err error) {
+	// Create slice based on a certain size. This size will be updated
+	// if the actual size is higher.
+	var buffer []C.char
 	cPropertyName := C.CString(propertyName)
 	defer C.free(unsafe.Pointer(cPropertyName))
 	cSeparator := C.CString(separator)
 	defer C.free(unsafe.Pointer(cSeparator))
 	exp := NewException()
-	actualSize := C.ResultsHashGetValuesString(
-		results.CPtr,
-		cPropertyName,
-		&buffer[0],
-		C.size_t(size),
-		cSeparator,
-		exp.CPtr)
 
-	// Check exception
-	if !exp.IsOkay() {
-		return "", uint64(actualSize), fmt.Errorf(
-			C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+	actualSize := uint64(0)
+	for ok := true; ok; {
+		buffer = make([]C.char, defaultSize)
+		actualSize = uint64(C.ResultsHashGetValuesString(
+			results.CPtr,
+			cPropertyName,
+			&buffer[0],
+			C.size_t(defaultSize),
+			cSeparator,
+			exp.CPtr))
+
+		// Check exception
+		if !exp.IsOkay() {
+			return "", fmt.Errorf(
+				C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+		}
+		if ok = actualSize > defaultSize; ok {
+			// Add 1 for the null terminator
+			defaultSize = actualSize + 1
+		}
 	}
 
-	return C.GoString(&buffer[0]), uint64(actualSize), nil
+	return C.GoString(&buffer[0]), nil
+}
+
+// ValuesString returns a string of all values resulted from a detection.
+// If there are multiple values, they are separated by the specified separator.
+func (results *ResultsHash) ValuesString(
+	propertyName string,
+	separator string) (value string, err error) {
+	// Use a reasonable default size here. If it is not big enough,
+	// an actual size will be used.
+	const defaultSize = 50
+	return valuesStringWithSize(results, propertyName, defaultSize, separator)
 }
 
 // AvailableProperties returns a list of available properties. The index

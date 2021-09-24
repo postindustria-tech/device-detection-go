@@ -76,7 +76,7 @@ func TestMatchUserAgent(t *testing.T) {
 			}
 
 			// Get values
-			value, _, err := results.ValuesString("IsMobile", 50, ",")
+			value, err := results.ValuesString("IsMobile", ",")
 			if err != nil {
 				t.Errorf("Failed to get values string for User-Agent \"%s\".\n",
 					testData.ua)
@@ -210,7 +210,7 @@ func TestHasNoValues(t *testing.T) {
 		}
 
 		// Test values string
-		value, _, err := results.ValuesString(propertyName, 50, ",")
+		value, err := results.ValuesString(propertyName, ",")
 		if err != nil {
 			t.Error("Failed to get values string.")
 		}
@@ -242,7 +242,7 @@ func TestValues(t *testing.T) {
 }
 
 // This tests ValuesString to be returned correctly
-// for a property including input.
+// for a property.
 func TestValuesString(t *testing.T) {
 	var testFunc TestFunc = func(manager *ResourceManager, t *testing.T) {
 		// Expected output
@@ -263,7 +263,7 @@ func TestValuesString(t *testing.T) {
 		}
 
 		// Get values
-		value, _, err := results.ValuesString(data.property, 50, ",")
+		value, err := results.ValuesString(data.property, ",")
 		if err != nil {
 			t.Errorf("Failed to get values string for User-Agent \"%s\".\n",
 				uaMobile)
@@ -280,16 +280,18 @@ func TestValuesString(t *testing.T) {
 	testDifferentPerformanceProfiles(testFunc, t)
 }
 
-// This tests ValuesString to be returned correctly
-// for a property including input.
-func TestValuesStringInsufficientSize(t *testing.T) {
+// This tests valuesStringSwithSize to be returned correctly
+// for a property if default size is smaller than actual.
+func TestValuesStringWithSize(t *testing.T) {
 	var testFunc TestFunc = func(manager *ResourceManager, t *testing.T) {
 		// Expected output
 		data := struct {
 			property string
-			expected uint64
-		}{"IsMobile", uint64(len("true"))}
-
+			expected string
+		}{"IsMobile", "true"}
+		// Use small size to make sure the function will reattempt with
+		// a return actual size
+		const testSize = 1
 		// Create results hash
 		results := NewResultsHash(manager, 1, 0)
 
@@ -302,23 +304,17 @@ func TestValuesStringInsufficientSize(t *testing.T) {
 		}
 
 		// Get values
-		value, actualSize, err := results.ValuesString(data.property, 1, ",")
+		value, err := valuesStringWithSize(results, data.property, testSize, ",")
 		if err != nil {
 			t.Errorf("Failed to get values string for User-Agent \"%s\".\n",
 				uaMobile)
 		}
-
-		// Make sure actualSize is correct
-		if actualSize != data.expected {
-			t.Errorf("Expected actual size to be %d but get %d.\n",
+		// Check if detection is correct
+		if !strings.EqualFold(value, data.expected) {
+			t.Errorf("Expected \"%s\" but get \"%s\"\n.",
 				data.expected,
-				actualSize)
-		}
-
-		// Make sure value is emtpy
-		if value != "" {
-			t.Error("Expected value to be an empty string since there wasn't " +
-				"enough space allocated.")
+				value,
+			)
 		}
 	}
 	// Execute the test with different performance profiles
