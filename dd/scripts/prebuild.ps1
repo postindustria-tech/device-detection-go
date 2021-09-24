@@ -8,7 +8,18 @@
   This powershell script is used on both Windows and Linux.
 #>
 
-Write-Host "# Build device detection core binaries."
+param (
+    [switch] $32bit
+)
+
+if ($32bit) {
+    $bit = 32
+    $buildFlags = '-D32bit=ON'
+} else {
+    $bit = 64
+}
+
+Write-Host "# Build $bit bit device detection core binaries."
 
 Write-Host ""
 Write-Host "# Check pre-requisites"
@@ -66,13 +77,13 @@ Push-Location ./build
 # Run CMake configure
 if ($IsLinux) {
     Write-Host "# On Linux platform."
-    cmake .. -DCMAKE_BUILD_TYPE=Release
+    cmake .. -DCMAKE_BUILD_TYPE=Release $buildFlags
 } elseif ($IsMacOS) {
     Write-Host "# On MacOS platform."
     cmake .. -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_BUILD_TYPE=Release
 } elseif ($IsWindows) {
     Write-Host "# On Windows platform."
-    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -G "MSYS Makefiles"
+    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -G "MSYS Makefiles" $buildFlags
 } else {
     Write-Host "# ERROR: Not supported platform. Exit."
     Pop-Location
