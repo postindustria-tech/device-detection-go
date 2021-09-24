@@ -77,11 +77,11 @@ stages:
 
       # Run prebuild
       - powershell: |
-          if [ '$(platform)' == 'x86' ]; then
+          if ('$(platform)' -eq 'x86') {
             ./dd/scripts/prebuild.ps1 -32bit
-          else
+          } else {
             ./dd/scrtips/prebuild.ps1
-          fi
+          }
         displayName: 'Build device detection core binaries'
         workingDirectory: '$(Build.SourcesDirectory)'
 
