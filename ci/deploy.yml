@@ -28,3 +28,8 @@ stages:
   parameters:
     imageName: $(linuxImage)
     branchName: 'refs/heads/main'
+
+# Make module available
+- template: go/shared-go-list-stage@ciTemplates
+  parameters:
+    stageDependencies: [publish_github]
