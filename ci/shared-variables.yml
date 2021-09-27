@@ -5,3 +5,5 @@ variables:
   value: 'ubuntu-18.04'
 - name: macImage
   value: 'macOS-10.14'
+- name: goVersion
+  value: '1.17.1'

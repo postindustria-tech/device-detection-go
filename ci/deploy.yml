@@ -33,3 +33,4 @@ stages:
 - template: go/shared-go-list-stage@ciTemplates
   parameters:
     stageDependencies: [publish_github]
+    goVersion: $(goVersion)
