@@ -11,6 +11,7 @@ schedules:
 # Include shared variables
 variables:
 - template: shared-variables.yml
+- group: CIAutomation # Required to access CI variables
 
 # Add the common-ci git repo as a resource to access common templates.
 resources:
