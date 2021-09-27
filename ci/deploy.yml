@@ -30,7 +30,7 @@ stages:
     branchName: 'refs/heads/main'
 
 # Make module available
-- template: go/shared-go-list-stage@ciTemplates
+- template: go/shared-go-list-stage.yml@ciTemplates
   parameters:
     stageDependencies: [publish_github]
     goVersion: $(goVersion)
