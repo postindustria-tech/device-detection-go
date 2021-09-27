@@ -19,6 +19,7 @@ variables:
 # Include shared variables
 - template: shared-variables.yml
 
+stages:
 - stage: Tagging
   
   jobs:
