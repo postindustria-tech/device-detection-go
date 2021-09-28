@@ -15,7 +15,7 @@ Go Lite implementation is currently supporting the following platforms and archi
 Go version:
 - 1.17.1
 
-## Pre-requesites
+## Pre-requisites
 
 ### Data File
 
