@@ -286,6 +286,8 @@ func (config *ConfigHash) SizeManagerFromFile(
 // a data file content that is intended to initialize the resource amanger. The
 // properties is a comma separated string list. This matches the C API
 // fiftyoneDegreeshashSizeManagerFromMemory.
+//
+// TODO: To be implemeted
 func (config *ConfigHash) SizeManagerFromMemory(
 	properties string,
 	memory unsafe.Pointer,

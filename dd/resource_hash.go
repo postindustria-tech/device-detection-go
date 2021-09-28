@@ -70,6 +70,8 @@ func InitManagerFromFile(
 // InitFromMemory initializes a resource manager based on a given data file
 // content held in the memory. The input properties is a comma separated string
 // list. This matches the C API fiftyoneDegreesHashInitManagerFromFile.
+//
+// TODO: To be implemeted
 func InitManagerFromMemory(
 	manager *ResourceManager,
 	config ConfigHash,

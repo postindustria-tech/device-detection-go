@@ -106,12 +106,16 @@ func (results *ResultsHash) Free() {
 
 // DeviceId returns the unique device id. This matches the C API
 // fiftyoneDegreesHashGetDeviceIdFromResults.
+//
+// TODO: To be implemeted
 func (results *ResultsHash) DeviceId() (id string, err error) {
 	// TODO: To be implemented
 	return "", nil
 }
 
 // DeviceIdByIndex returns the unique device id of a result pointed by a index.
+//
+// TODO: To be implemeted
 func (results *ResultsHash) DeviceIdByIndex(index uint32) string {
 	// TODO: To be implemented
 	return ""
@@ -201,6 +205,8 @@ func (results *ResultsHash) MethodByIndex(index uint32) MatchMethod {
 }
 
 // Trace returns the trace route in a readable format.
+//
+// TODO: To be implemeted
 func (results *ResultsHash) Trace() string {
 	// TODO: To be implemented
 	return ""
@@ -208,6 +214,8 @@ func (results *ResultsHash) Trace() string {
 
 // TraceByIndex returns the trace reoute in a readable format of a result
 // pointed by a given index.
+//
+// TODO: To be implemeted
 func (results *ResultsHash) TraceByIndex(index uint32) string {
 	// TODO: To be implemented
 	return ""
@@ -287,6 +295,8 @@ func (results *ResultsHash) NoValueReasonMessage(
 
 // Values returns a list of values resulted from a detection for a given
 // property index.
+//
+// TODO: To be implemeted
 func (results *ResultsHash) Values(
 	requiredPropertyIndex int) (values []string, err error) {
 	// TODO: To be implemented
@@ -388,6 +398,8 @@ func (results *ResultsHash) RequiredPropertyIndexFromName(
 
 // PropertyType returns the type that a value of a property determined by
 // a given proprety index can have.
+//
+// TODO: To be implemeted
 func (results *ResultsHash) PropertyType(
 	requiredPropertyIndex int) reflect.Type {
 	// TODO: To be implemented
@@ -417,6 +429,8 @@ func (results *ResultsHash) MatchUserAgent(ua string) error {
 
 // MatchEvidence performs a detection on evidence encapsulated in a EvidenceHash
 // object. This matches the C API fiftyoneDegreesResultsHashFromEvidence.
+//
+// TODO: To be implemeted
 func (results *ResultsHash) MatchEvidence(e Evidence) error {
 	// TODO: To be implemented
 	return nil
@@ -424,6 +438,8 @@ func (results *ResultsHash) MatchEvidence(e Evidence) error {
 
 // MatchDeviceId performs a detection on a given device id. This matches
 // the C API fiftyoneDegreesResultsHashFromDeviceId
+//
+// TODO: To be implemeted
 func (results *ResultsHash) MatchDeviceId(id string) error {
 	// TODO: To be implemented
 	return nil

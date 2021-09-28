@@ -42,6 +42,8 @@ type Evidence struct {
 }
 
 // NewEvidenceHash returns a new EvidenceHash object with a given capacity
+//
+// TODO: To be implemeted
 func NewEvidenceHash(capacity uint32) (evidence *Evidence, err error) {
 	// TODO: To be implemented
 	return nil, nil
@@ -49,6 +51,8 @@ func NewEvidenceHash(capacity uint32) (evidence *Evidence, err error) {
 
 // Free frees the evidence resources allocated in the C layer. This matches the
 // C API fiftyoneDegreesEvidenceFree
+//
+// TODO: To be implemeted
 func (evidence *Evidence) Free() error {
 	// TODO: To be implemented
 	return nil
@@ -56,6 +60,8 @@ func (evidence *Evidence) Free() error {
 
 // Add adds a new evidence to the object. This matches the C API
 // fiftyoneDegreesEvidenceAddString
+//
+// TODO: To be implemeted
 func (evidence *Evidence) Add(
 	prefix EvidencePrefix,
 	key string,
