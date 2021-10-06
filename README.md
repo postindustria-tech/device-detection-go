@@ -48,7 +48,7 @@ In order to build use device-detection-go the following are required:
 
 ## Module and Packages
 
-This module name `device-detection-go` at path `github.com/51Degrees/device-detection-go`
+This module name `device-detection-go` at path `github.com/51Degrees/device-detection-go/v4`
 
 
 This Go Lite version contains only one single package:
@@ -76,7 +76,7 @@ Make sure to run this script as input to `pwsh`. If `pwsh` is run first to creat
 Once the build is completed, the Device Detection package can be imported and used as below. This uses go module approach. That means a `go.mod` is needed with `github.com/51Degrees/device-detection-go` specified as a dependency; and the module path is replaced with a path to the checked out `device-detection-go` using `go mod edit --replace`:
 
 ```
-import "github.com/51Degrees/device-detection-go/dd"
+import "github.com/51Degrees/device-detection-go/v4/dd"
 ```
 
 ### Limitation
