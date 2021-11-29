@@ -30,6 +30,15 @@ import (
 )
 
 // test User-Agents
+// Chrome User-Agent with Client Hints supported
+const chromeUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+	"AppleWebKit/537.36 (KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36"
+const edgeUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+	"(KHTML, like Gecko) Chrome/95.0.4638.69 Safari/537.36 Edg/95.0.1020.44"
+const safariUA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:94.0) " +
+	"Gecko/20100101 Firefox/94.0"
+
+// Other User-Agents
 const uaMobile = "Mozilla/5.0 (iPhone; CPU iPhone OS 7_1 like Mac OS X) " +
 	"AppleWebKit/537.51.2 (KHTML, like Gecko) Version/7.0 Mobile/11D167 " +
 	"Safari/9537.53"
@@ -53,6 +62,9 @@ type PerfProfileFunc func(perf PerformanceProfile, t *testing.T)
 // Test variables
 var testDataFilePath string = ""
 
+// Test function to be executed by a test decorator method
+type TestFunc func(manager *ResourceManager, t *testing.T)
+
 // performMultiPerfProfiles executes input function with different
 // performance profiles
 func performMultiPerfProfiles(perfFunc PerfProfileFunc, t *testing.T) {
@@ -67,6 +79,34 @@ func performMultiPerfProfiles(perfFunc PerfProfileFunc, t *testing.T) {
 	for _, perf := range data {
 		perfFunc(perf, t)
 	}
+}
+
+// This is a decorator method which take a test function and execute it with
+// different performance profile
+func testDifferentPerformanceProfiles(properties string, testFunc TestFunc, t *testing.T) {
+	f := func(perf PerformanceProfile, t *testing.T) {
+		// Setup a resource manager
+		manager := NewResourceManager()
+		// Create config per performance
+		config := NewConfigHash(perf)
+		config.SetAllowUnmatched(false)
+		err := InitManagerFromFile(
+			manager,
+			*config,
+			properties,
+			testDataFilePath,
+		)
+		if err != nil {
+			log.Fatalf("Failed to initialize resource manager from file \"%s\"\n.",
+				testDataFilePath)
+		}
+		// Run the test
+		testFunc(manager, t)
+
+		// Free the resource manager
+		manager.Free()
+	}
+	performMultiPerfProfiles(f, t)
 }
 
 func TestMain(m *testing.M) {

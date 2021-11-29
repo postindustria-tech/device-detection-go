@@ -32,7 +32,9 @@ import (
 // ResourceManagers wraps around a pointer to a value of C ResourceManager
 // structure
 type ResourceManager struct {
-	CPtr *C.ResourceManager
+	setHeaders     map[string]([]string) // Headers to be set in a Http response
+	HttpHeaderKeys []EvidenceKey         // Http header keys required by this engine
+	CPtr           *C.ResourceManager    // Pointer to C resource
 }
 
 // Finalizer function for Resource Manager
@@ -46,7 +48,7 @@ func resourceFinalizer(m *ResourceManager) {
 // NewResourceManager creats a new object of ResourceManager
 func NewResourceManager() *ResourceManager {
 	cManager := new(C.ResourceManager)
-	manager := &ResourceManager{cManager}
+	manager := &ResourceManager{nil, nil, cManager}
 	runtime.SetFinalizer(manager, resourceFinalizer)
 	return manager
 }
@@ -54,8 +56,16 @@ func NewResourceManager() *ResourceManager {
 // Free frees the native resources allocated in the C layer for a Resource
 // Manager.
 func (manager *ResourceManager) Free() {
-	C.ResourceManagerFree(manager.CPtr)
-	// If successfully freed the resource manager. Set the pointer to nil.
-	// If not, keep the pointer for future reference.
-	manager.CPtr = nil
+	if manager.CPtr != nil {
+		C.ResourceManagerFree(manager.CPtr)
+		// If successfully freed the resource manager. Set the pointer to nil.
+		// If not, keep the pointer for future reference.
+		manager.CPtr = nil
+	}
+	if manager.setHeaders != nil {
+		manager.setHeaders = nil
+	}
+	if manager.HttpHeaderKeys != nil {
+		manager.HttpHeaderKeys = nil
+	}
 }

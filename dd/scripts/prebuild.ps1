@@ -13,8 +13,12 @@ param (
 )
 
 if ($32bit) {
+    if ($IsWindows) {
+        Write-Host "# ERROR: 32bit is currently not support on Windows."
+        exit 1
+    }
     $bit = 32
-    $buildFlags = '-D32bit=ON'
+    $buildFlags += '-D32bit=ON'
 } else {
     $bit = 64
 }
@@ -37,7 +41,7 @@ Write-Host ""
 Write-Host "# Check gcc"
 which gcc
 if (!$?) {
-    Write-Host "# ERROR: CMake not found. Please install gcc"
+    Write-Host "# ERROR: CMake not found. Please install gcc."
     exit 1
 }
 
@@ -83,7 +87,7 @@ if ($IsLinux) {
     cmake .. -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_BUILD_TYPE=Release
 } elseif ($IsWindows) {
     Write-Host "# On Windows platform."
-    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -G "MSYS Makefiles" $buildFlags
+    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" $buildFlags
 } else {
     Write-Host "# ERROR: Not supported platform. Exit."
     Pop-Location
