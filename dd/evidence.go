@@ -25,47 +25,98 @@ package dd
 // #include <string.h>
 // #include "./device-detection-cxx/src/common-cxx/fiftyone.h"
 import "C"
-
-type EvidencePrefix int
-
-const (
-	HttpHeaderString   EvidencePrefix = 1 << iota
-	HttpIpAddresses                   = 1 << iota
-	HttpEvidenceServer                = 1 << iota
-	HttpEvidenceQuery                 = 1 << iota
-	HttpEvidenceCookie                = 1 << iota
-	HttpEvidenceIgnore                = 1 << 7
+import (
+	"runtime"
+	"unsafe"
 )
 
+type EvidencePrefix C.fiftyoneDegreesEvidencePrefix
+
+const (
+	HttpHeaderString   EvidencePrefix = C.FIFTYONE_DEGREES_EVIDENCE_HTTP_HEADER_STRING
+	HttpIpAddresses                   = C.FIFTYONE_DEGREES_EVIDENCE_HTTP_HEADER_IP_ADDRESSES
+	HttpEvidenceServer                = C.FIFTYONE_DEGREES_EVIDENCE_SERVER
+	HttpEvidenceQuery                 = C.FIFTYONE_DEGREES_EVIDENCE_QUERY
+	HttpEvidenceCookie                = C.FIFTYONE_DEGREES_EVIDENCE_COOKIE
+	HttpEvidenceIgnore                = C.FIFTYONE_DEGREES_EVIDENCE_IGNORE
+)
+
+// Header Key required by engine
+type EvidenceKey struct {
+	Prefix EvidencePrefix
+	Key    string
+}
+
+// C type Evidence
+type CEvidence struct {
+	key   *C.char
+	value *C.char
+}
+
+// Evidence structure
 type Evidence struct {
-	CPtr *C.EvidenceKeyValuePairArray
+	cEvidence []CEvidence
+	CPtr      *C.EvidenceKeyValuePairArray
+}
+
+// evidenceFinalizer checks if C resource has been explicitly freed by Free
+// method. Panic if it was not.
+func evidenceFinalizer(evidence *Evidence) {
+	if evidence.CPtr != nil {
+		panic("Error: Evidence should be freed explicitly by its Free method.")
+	}
 }
 
 // NewEvidenceHash returns a new EvidenceHash object with a given capacity
-//
-// TODO: To be implemeted
-func NewEvidenceHash(capacity uint32) (evidence *Evidence, err error) {
-	// TODO: To be implemented
-	return nil, nil
+func NewEvidenceHash(capacity uint32) (evidence *Evidence) {
+	cEvidencePtr := C.EvidenceCreate(C.uint32_t(capacity))
+	e := &Evidence{
+		make([]CEvidence, 0, capacity),
+		cEvidencePtr}
+	runtime.SetFinalizer(e, evidenceFinalizer)
+	return e
 }
 
 // Free frees the evidence resources allocated in the C layer. This matches the
 // C API fiftyoneDegreesEvidenceFree
-//
-// TODO: To be implemeted
-func (evidence *Evidence) Free() error {
-	// TODO: To be implemented
-	return nil
+func (evidence *Evidence) Free() {
+	// Free the tracked C evidence strings
+	if evidence.cEvidence != nil {
+		// Free each cstring in the evidence
+		for _, e := range evidence.cEvidence {
+			C.free(unsafe.Pointer(e.key))
+			C.free(unsafe.Pointer(e.value))
+		}
+		evidence.cEvidence = nil
+	}
+
+	// Free the C resources
+	if evidence.CPtr != nil {
+		C.EvidenceFree(evidence.CPtr)
+		evidence.CPtr = nil
+	}
 }
 
 // Add adds a new evidence to the object. This matches the C API
 // fiftyoneDegreesEvidenceAddString
-//
-// TODO: To be implemeted
 func (evidence *Evidence) Add(
 	prefix EvidencePrefix,
 	key string,
 	value string) error {
-	// TODO: To be implemented
+	cKey := C.CString(key)
+	cValue := C.CString(value)
+	// Add it to the tracked map
+	evidence.cEvidence = append(evidence.cEvidence, CEvidence{cKey, cValue})
+	C.EvidenceAddString(
+		evidence.CPtr,
+		C.fiftyoneDegreesEvidencePrefix(prefix),
+		cKey,
+		cValue)
+
 	return nil
+}
+
+// Count return number of evidence in Evidence object
+func (evidence *Evidence) Count() int {
+	return int(evidence.CPtr.count)
 }

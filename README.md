@@ -11,6 +11,7 @@ This repository contains Go Lite implementation of device detection engine. This
 Go Lite implementation is currently supporting the following platforms and architectures:
 - Linux 32/64 bit, Intel and ARM processor
 - MacOS 64 bit, Intel and ARM processor
+- Windows 64bit, Intel
 
 Go version:
 - 1.17.1
@@ -41,8 +42,8 @@ git lfs pull
 ### Software
 
 In order to build use device-detection-go the following are required:
-- Powershell Core
-- A C compiler that support C11 or above (Gcc on Linux and Clang on MacOS)
+- Powershell Core (7 or above)
+- A C compiler that support C11 or above (Gcc on Linux, Clang on MacOS and MinGW-x64 on Windows)
 - A CMake version of 3.10 or above
 - libatomic - which usually come with default Gcc, Clang installation
 
@@ -55,6 +56,11 @@ This Go Lite version contains only one single package:
 - `dd`
 
 ## Build and Usage
+
+### Windows
+If you are on Windows, make sure the path to the `MinGW-x64` `bin` folder is included in the `PATH`.
+
+### Build steps for all platforms
 
 Currently, it is recommended to build and use `device-detection-go` by cloning the repository rather than installing via `go mod`. To use `device-detection-go` module, users first need to build the core static libraries. There is a powershell script `prebuild.ps1` located in `dd/scripts` folder that assists on building the core static library providing that all pre-requisites have been satisfied. Run the script as below:
 ```

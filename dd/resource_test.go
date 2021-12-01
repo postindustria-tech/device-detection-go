@@ -27,13 +27,53 @@ import "testing"
 // Test that resource finalizer will panic if a pointer to
 // C resource has not been freed
 func TestResourceFinalizer(t *testing.T) {
+	manager := NewResourceManager()
+
+	// Check that panic is thrown and make sure resource
+	// manager is freed.
 	defer func() {
 		if r := recover(); r == nil {
+			manager.Free()
 			t.Error("Resource finalizer did not panic.")
+		} else {
+			manager.Free()
 		}
 	}()
-	manager := NewResourceManager()
 	// Perform finalizer on live resource
 	resourceFinalizer(manager)
+}
+
+// Test that NewResourceManager create and free resource correctly
+func TestNewResourceManager(t *testing.T) {
+	// Check if resource manager is created properly
+	manager := NewResourceManager()
+	if manager.setHeaders != nil {
+		t.Error("Expected 'setHeaders' to be initialized to 'nil'")
+	}
+
+	if manager.HttpHeaderKeys != nil {
+		t.Error("Expected 'HttpHeaderKeys' to be initialized to 'nil'")
+	}
+
+	if manager.CPtr == nil {
+		t.Error("C resource was not setup.")
+	}
+
+	// Update the values
+	manager.setHeaders = make(map[string][]string)
+	manager.HttpHeaderKeys = make([]EvidenceKey, 0)
+
+	// Check if resource manager is freed properly
 	manager.Free()
+	if manager.setHeaders != nil {
+		t.Error("Expected 'setHeaders' to be reset to 'nil' after free.")
+	}
+
+	if manager.HttpHeaderKeys != nil {
+		t.Error("Expected 'HttpHeaderKeys' to be reset to 'nil' after free.")
+	}
+
+	if manager.CPtr != nil {
+		t.Error("C resource pointer was not reset to 'nil' after free.")
+	}
 }

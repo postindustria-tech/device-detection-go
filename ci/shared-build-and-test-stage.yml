@@ -151,3 +151,54 @@ stages:
         inputs:
           command: test
           arguments: './...'
+
+# This stage use MinGW-x64 to build binaries.
+# By default we only test 64bit version.
+- stage: Windows
+  dependsOn: []
+
+  jobs:
+    - job: Build_and_Test
+      displayName: Build and Test
+      condition: ne(${{ parameters.runTests }}, 'Off')
+
+      variables: 
+        - group: InternalKeys
+      
+      strategy:
+        matrix:
+          Windows VS 2019:
+            imageName: 'windows-2019'
+
+      pool:
+        vmImage: $(imageName)
+
+      steps:
+      - checkout: self
+        submodules: recursive
+        lfs: true
+        persistCredentials: true
+
+      # Install go
+      - task: GoTool@0
+        displayName: 'Use go ${{ parameters.goVersion }}'
+        inputs:
+          version: '${{ parameters.goVersion }}'
+
+      # Run prebuild
+      - task: Powershell@2
+        inputs:
+          targetType: inline
+          script: |
+            $PSVersionTable
+            ./dd/scripts/prebuild.ps1
+          pwsh: true
+          displayName: 'Build device detection core binaries'
+          workingDirectory: '$(Build.SourcesDirectory)'
+
+      # Run test
+      - task: Go@0
+        displayName: 'Run tests'
+        inputs:
+          command: test
+          arguments: './...'

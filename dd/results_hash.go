@@ -30,6 +30,7 @@ import "C"
 import (
 	"fmt"
 	"math"
+	"net/http"
 	"reflect"
 	"runtime"
 	"unsafe"
@@ -62,7 +63,7 @@ type ResultsHash struct {
 /* Constructor and Destructor */
 
 // resultsFinalizer check if C resource has been explicitly
-// freed by Free method. Panic if it is not.
+// freed by Free method. Panic if it was not.
 func resultsFinalizer(res *ResultsHash) {
 	if res.CPtr != nil {
 		panic("ERROR: ResultsHash should be freed explicitly by " +
@@ -98,27 +99,59 @@ func NewResultsHash(
 
 // Free free the resource allocated in the C layer.
 func (results *ResultsHash) Free() {
-	C.ResultsHashFree(results.CPtr)
-	results.CPtr = nil
+	if results.CPtr != nil {
+		C.ResultsHashFree(results.CPtr)
+		results.CPtr = nil
+	}
+}
+
+// Count returns the number of results
+func (results *ResultsHash) Count() int {
+	return int(results.CPtr.count)
 }
 
 /* Metric Getters */
 
 // DeviceId returns the unique device id. This matches the C API
 // fiftyoneDegreesHashGetDeviceIdFromResults.
-//
-// TODO: To be implemeted
 func (results *ResultsHash) DeviceId() (id string, err error) {
-	// TODO: To be implemented
-	return "", nil
+	var idCStr []C.char
+	const idCStrSize = 50
+	idCStr = make([]C.char, idCStrSize)
+	exp := NewException()
+	C.HashGetDeviceIdFromResults(
+		results.CPtr, &idCStr[0], idCStrSize, exp.CPtr)
+
+	// Check exception
+	if !exp.IsOkay() {
+		return "", fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+	}
+	return C.GoString(&idCStr[0]), nil
 }
 
 // DeviceIdByIndex returns the unique device id of a result pointed by a index.
-//
-// TODO: To be implemeted
-func (results *ResultsHash) DeviceIdByIndex(index uint32) string {
-	// TODO: To be implemented
-	return ""
+func (results *ResultsHash) DeviceIdByIndex(
+	index uint32) (id string, err error) {
+	if index >= uint32(results.Count()) {
+		return "", fmt.Errorf(
+			"index %d is out of range. Only %d results available",
+			index, results.Count())
+	}
+
+	cResults := (*results.CResults).([]C.ResultHash)
+	dataSet := (*C.DataSetHash)(results.CPtr.b.b.dataSet)
+	var idCStr []C.char
+	const idCStrSize = 50
+	idCStr = make([]C.char, idCStrSize)
+	exp := NewException()
+	C.HashGetDeviceIdFromResult(
+		dataSet, &cResults[index], &idCStr[0], idCStrSize, exp.CPtr)
+
+	// Check exception
+	if !exp.IsOkay() {
+		return "", fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+	}
+	return C.GoString(&idCStr[0]), nil
 }
 
 // Iterations returns the number of iterations carried out in order to find
@@ -126,34 +159,44 @@ func (results *ResultsHash) DeviceIdByIndex(index uint32) string {
 func (results *ResultsHash) Iterations() int32 {
 	iterations := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
-	for _, cResult := range cResults {
-		iterations += int32(cResult.iterations)
+	for i := 0; i < int(results.CPtr.count); i++ {
+		iterations += int32(cResults[i].iterations)
 	}
 	return iterations
 }
 
 // Iterations returns the number of iterations carried out in order to find
 // a match of a result pointed by an index.
-func (results *ResultsHash) IterationsByIndex(index uint32) int32 {
+func (results *ResultsHash) IterationsByIndex(index uint32) (int32, error) {
+	if index >= uint32(results.Count()) {
+		return 0, fmt.Errorf(
+			"index %d is out of range. Only %d results available",
+			index, results.Count())
+	}
 	cResults := (*results.CResults).([]C.ResultHash)
-	return int32(cResults[index].iterations)
+	return int32(cResults[index].iterations), nil
 }
 
 // Drift returns the maximum drift for a matched substring.
 func (results *ResultsHash) Drift() int32 {
 	drift := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
-	for _, cResult := range cResults {
-		drift += int32(cResult.drift)
+	for i := 0; i < int(results.CPtr.count); i++ {
+		drift += int32(cResults[i].drift)
 	}
 	return drift
 }
 
 // DriftByIndex returns the drift for a matched substring of a result pointed
 // by an index.
-func (results *ResultsHash) DriftByIndex(index uint32) int32 {
+func (results *ResultsHash) DriftByIndex(index uint32) (int32, error) {
+	if index >= uint32(results.Count()) {
+		return 0, fmt.Errorf(
+			"index %d is out of range. Only %d results available",
+			index, results.Count())
+	}
 	cResults := (*results.CResults).([]C.ResultHash)
-	return int32(cResults[index].drift)
+	return int32(cResults[index].drift), nil
 }
 
 // Difference returns the total difference between the results returned and
@@ -161,35 +204,40 @@ func (results *ResultsHash) DriftByIndex(index uint32) int32 {
 func (results *ResultsHash) Difference() int32 {
 	difference := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
-	for _, cResult := range cResults {
-		difference += int32(cResult.difference)
+	for i := 0; i < int(results.CPtr.count); i++ {
+		difference += int32(cResults[i].difference)
 	}
 	return difference
 }
 
 // DifferenceByIndex returns the difference between the result pointed by a
 // index and the target User-Agent.
-func (results *ResultsHash) DifferenceByIndex(index uint32) int32 {
+func (results *ResultsHash) DifferenceByIndex(index uint32) (int32, error) {
+	if index >= uint32(results.Count()) {
+		return 0, fmt.Errorf(
+			"index %d is out of range. Only %d results available",
+			index, results.Count())
+	}
 	cResults := (*results.CResults).([]C.ResultHash)
-	return int32(cResults[index].difference)
+	return int32(cResults[index].difference), nil
 }
 
 // MatchedNodes returns the number of hash nodes matched within the evidence.
 func (results *ResultsHash) MatchedNodes() int32 {
 	matchedNodes := int32(0)
 	cResults := (*results.CResults).([]C.ResultHash)
-	for _, cResult := range cResults {
-		matchedNodes += int32(cResult.matchedNodes)
+	for i := 0; i < int(results.CPtr.count); i++ {
+		matchedNodes += int32(cResults[i].matchedNodes)
 	}
 	return matchedNodes
 }
 
 // Method returns the method used to determine the match result.
 func (results *ResultsHash) Method() MatchMethod {
-	method := results.MethodByIndex(0)
+	method := None
 	cResults := (*results.CResults).([]C.ResultHash)
-	for _, cResult := range cResults {
-		nextMethod := cMethodMap[cResult.method]
+	for i := 0; i < int(results.CPtr.count); i++ {
+		nextMethod := cMethodMap[cResults[i].method]
 		if nextMethod > method {
 			method = nextMethod
 		}
@@ -199,9 +247,14 @@ func (results *ResultsHash) Method() MatchMethod {
 
 // MethodByIndex returns the method use to determine a match result pointed
 // by a index.
-func (results *ResultsHash) MethodByIndex(index uint32) MatchMethod {
+func (results *ResultsHash) MethodByIndex(index uint32) (MatchMethod, error) {
+	if index >= uint32(results.Count()) {
+		return None, fmt.Errorf(
+			"index %d is out of range. Only %d results available",
+			index, results.Count())
+	}
 	cResults := (*results.CResults).([]C.ResultHash)
-	return cMethodMap[cResults[index].method]
+	return cMethodMap[cResults[index].method], nil
 }
 
 // Trace returns the trace route in a readable format.
@@ -216,9 +269,9 @@ func (results *ResultsHash) Trace() string {
 // pointed by a given index.
 //
 // TODO: To be implemeted
-func (results *ResultsHash) TraceByIndex(index uint32) string {
+func (results *ResultsHash) TraceByIndex(index uint32) (string, error) {
 	// TODO: To be implemented
-	return ""
+	return "", nil
 }
 
 // UserAgents returns number of User-Agents that were used in the results.
@@ -227,9 +280,14 @@ func (results *ResultsHash) UserAgents() uint32 {
 }
 
 // UserAgent return the user agent of a result pointed by a given index.
-func (results *ResultsHash) UserAgent(index int) string {
+func (results *ResultsHash) UserAgent(index int) (string, error) {
+	if index >= results.Count() {
+		return "", fmt.Errorf(
+			"index %d is out of range. Only %d results available",
+			index, results.Count())
+	}
 	cResults := (*results.CResults).([]C.ResultHash)
-	return C.GoString(cResults[index].b.matchedUserAgent)
+	return C.GoString(cResults[index].b.matchedUserAgent), nil
 }
 
 // HasValuesByIndex returns whether the last detection returns any matched value
@@ -429,18 +487,84 @@ func (results *ResultsHash) MatchUserAgent(ua string) error {
 
 // MatchEvidence performs a detection on evidence encapsulated in a EvidenceHash
 // object. This matches the C API fiftyoneDegreesResultsHashFromEvidence.
-//
-// TODO: To be implemeted
-func (results *ResultsHash) MatchEvidence(e Evidence) error {
-	// TODO: To be implemented
+func (results *ResultsHash) MatchEvidence(e *Evidence) error {
+	exp := NewException()
+	C.ResultsHashFromEvidence(
+		results.CPtr,
+		e.CPtr,
+		exp.CPtr)
+	// Check exception
+	if !exp.IsOkay() {
+		return fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+	}
 	return nil
 }
 
 // MatchDeviceId performs a detection on a given device id. This matches
 // the C API fiftyoneDegreesResultsHashFromDeviceId
-//
-// TODO: To be implemeted
 func (results *ResultsHash) MatchDeviceId(id string) error {
-	// TODO: To be implemented
+	exp := NewException()
+	cDeviceId := C.CString(id)
+	defer C.free(unsafe.Pointer(cDeviceId))
+	C.ResultsHashFromDeviceId(
+		results.CPtr,
+		cDeviceId,
+		C.strlen(cDeviceId),
+		exp.CPtr)
+
+	// Check exception
+	if !exp.IsOkay() {
+		return fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+	}
+
+	return nil
+}
+
+// GetResponseHeaders construct a map of Headers and their values to be set
+// in a HTTP response.
+func (results *ResultsHash) ResponseHeaders(
+	manager *ResourceManager) (headers map[string]string, err error) {
+	// Loop through all pre-obtained list of SetHeaders
+	wrkHeaders := make(map[string]string)
+	for header, properties := range manager.setHeaders {
+		headerValue := ""
+		for i, property := range properties {
+			has, err := results.HasValues(property)
+			if err != nil {
+				return nil, err
+			}
+			if has {
+				val, err := results.ValuesString(property, ",")
+				if err != nil {
+					return nil, err
+				} else if val != "Unknown" {
+					if i > 0 {
+						headerValue += fmt.Sprintf(",%s", val)
+					} else {
+						headerValue += val
+					}
+				}
+			}
+		}
+		// Only add header if value is not an empty string
+		if headerValue != "" {
+			wrkHeaders[header] = headerValue
+		}
+	}
+	return wrkHeaders, nil
+}
+
+// ResponseHeaders constructs the response header and use the input
+// response writer to write the headers to the response.
+func (results *ResultsHash) SetResponseHeaders(
+	w http.ResponseWriter, manager *ResourceManager) error {
+	responseHeaders, err := results.ResponseHeaders(manager)
+	if err != nil {
+		return err
+	}
+
+	for header, value := range responseHeaders {
+		w.Header().Set(header, value)
+	}
 	return nil
 }
