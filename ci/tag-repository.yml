@@ -17,7 +17,7 @@ resources:
 
 variables:
 # Include shared variables
-- template: shared-variables.yml
+- template: shared-variables.yml@ciTemplates
 
 stages:
 - stage: Tagging

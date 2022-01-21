@@ -6,6 +6,9 @@ parameters:
 - name: goVersion
   type: string
   default: '1.17.1'
+- name: windowsImage
+- name: linuxImage
+- name: macImage
 
 stages:
 - stage: Linux
@@ -21,17 +24,11 @@ stages:
 
       strategy:
         matrix:
-          Ubuntu 18 x86:
-            imageName: 'ubuntu-18.04'
+          Linux x86:
+            imageName: ${{ parameters.linuxImage }}
             platform: 'x86'
-          Ubuntu 18 x64:
-            imageName: 'ubuntu-18.04'
-            platform: 'x64'
-          Ubuntu 20 x86:
-            imageName: 'ubuntu-20.04'
-            platform: 'x86'
-          Ubuntu 20 x64:
-            imageName: 'ubuntu-20.04'
+          Linux x64:
+            imageName: ${{ parameters.linuxImage }}
             platform: 'x64'
 
       pool:
@@ -119,10 +116,8 @@ stages:
 
       strategy:
         matrix:
-          MacOS 10.14:
-            imageName: 'macOS-10.14'
-          MacOS 10.15:
-            imageName: 'macOS-10.15'
+          MacOS:
+            imageName: ${{ parameters.macImage }}
 
       pool:
         vmImage: $(imageName)
@@ -167,8 +162,8 @@ stages:
       
       strategy:
         matrix:
-          Windows VS 2019:
-            imageName: 'windows-2019'
+          Windows:
+            imageName: ${{ parameters.windowsImage }}
 
       pool:
         vmImage: $(imageName)
