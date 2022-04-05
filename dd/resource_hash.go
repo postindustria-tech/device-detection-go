@@ -207,7 +207,7 @@ func getUniqueHeaders(manager *ResourceManager) []string {
 	uniqueHeadersCount := int(cDataSet.b.b.uniqueHeaders.count)
 	a := make([]string, 0, uniqueHeadersCount)
 	for i := 0; i < uniqueHeadersCount; i++ {
-		header := C.GoString(&(((*C.String)(unsafe.Pointer(cUniqueHeaders[i].name.data.ptr))).value))
+		header := C.GoString(cUniqueHeaders[i].name)
 		a = append(a, header)
 	}
 	return a
