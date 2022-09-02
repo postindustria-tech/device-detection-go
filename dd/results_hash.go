@@ -33,6 +33,7 @@ import (
 	"net/http"
 	"reflect"
 	"runtime"
+	"strings"
 	"unsafe"
 )
 
@@ -527,8 +528,8 @@ func (results *ResultsHash) ResponseHeaders(
 	// Loop through all pre-obtained list of SetHeaders
 	wrkHeaders := make(map[string]string)
 	for header, properties := range manager.setHeaders {
-		headerValue := ""
-		for i, property := range properties {
+		headerValues := make([]string, 0)
+		for _, property := range properties {
 			has, err := results.HasValues(property)
 			if err != nil {
 				return nil, err
@@ -538,20 +539,39 @@ func (results *ResultsHash) ResponseHeaders(
 				if err != nil {
 					return nil, err
 				} else if val != "Unknown" {
-					if i > 0 {
-						headerValue += fmt.Sprintf(",%s", val)
-					} else {
-						headerValue += val
+					vals := strings.Split(val, ",")
+					for _, curVal := range vals {
+						if sliceContains(headerValues, curVal) == false {
+							headerValues = append(headerValues, curVal)
+						}
 					}
 				}
 			}
 		}
 		// Only add header if value is not an empty string
-		if headerValue != "" {
+		if len(headerValues) > 0 {
+			headerValue := ""
+			for i, val := range headerValues {
+				if i > 0 {
+					headerValue += fmt.Sprintf(",%s", val)
+				} else {
+					headerValue += val
+				}
+			}	
 			wrkHeaders[header] = headerValue
 		}
 	}
 	return wrkHeaders, nil
+}
+
+// Check if a slice of strings contains another string
+func sliceContains(s []string, e string) bool {
+    for _, a := range s {
+        if a == e {
+            return true
+        }
+    }
+    return false
 }
 
 // ResponseHeaders constructs the response header and use the input

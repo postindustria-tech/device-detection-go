@@ -723,8 +723,7 @@ func TestResponseHeaders(t *testing.T) {
 		{
 			"", chromeUA, map[string]([]string){
 				"Accept-CH": []string{
-					"Sec-CH-UA-Arch",
-					"Sec-CH-UA-Full-Version",
+					"Sec-CH-UA-Full-Version-List",
 					"Sec-CH-UA-Mobile",
 					"Sec-CH-UA-Model",
 					"Sec-CH-UA-Platform-Version",
@@ -744,7 +743,6 @@ func TestResponseHeaders(t *testing.T) {
 		{
 			"SetHeaderHardwareAccept-CH", chromeUA, map[string]([]string){
 				"Accept-CH": []string{
-					"Sec-CH-UA-Arch",
 					"Sec-CH-UA-Mobile",
 					"Sec-CH-UA-Model",
 				},
@@ -753,8 +751,10 @@ func TestResponseHeaders(t *testing.T) {
 		{
 			"SetHeaderBrowserAccept-CH", chromeUA, map[string]([]string){
 				"Accept-CH": []string{
-					"Sec-CH-UA-Full-Version",
 					"Sec-CH-UA",
+					"Sec-CH-UA-Full-Version-List",
+					"Sec-CH-UA-Mobile",
+					"Sec-CH-UA-Platform",
 				},
 			},
 		},
@@ -849,8 +849,7 @@ func TestSetResponseHeaders(t *testing.T) {
 		{
 			"", chromeUA, map[string]([]string){
 				"Accept-CH": []string{
-					"Sec-CH-UA-Arch",
-					"Sec-CH-UA-Full-Version",
+					"Sec-CH-UA-Full-Version-List",
 					"Sec-CH-UA-Mobile",
 					"Sec-CH-UA-Model",
 					"Sec-CH-UA-Platform-Version",
