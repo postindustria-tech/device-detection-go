@@ -1,0 +1,23 @@
+[
+  {
+    "Name": "Ubuntu_Go_1.20",
+    "Image": "ubuntu-latest",
+    "Language": "go",
+    "LanguageVersion": "1.20",
+    "PackageRequirement": true
+  },
+  {
+    "Name": "Windows_Go_1.20",
+    "Image": "windows-latest",
+    "Language": "go",
+    "LanguageVersion": "1.20",
+    "PackageRequirement": true
+  },
+  {
+    "Name": "macOS_Go_1.20",
+    "Image": "macos-latest",
+    "Language": "go",
+    "LanguageVersion": "1.20",
+    "PackageRequirement": true
+  }
+]
