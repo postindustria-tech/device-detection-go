@@ -23,8 +23,8 @@
 package dd
 
 // #include <string.h>
-// #include "./device-detection-cxx/src/hash/hash.h"
-// #include "./device-detection-cxx/src/hash/fiftyone.h"
+// #include "device-detection-cxx.h"
+// #include "device-detection-cxx.h"
 import "C"
 
 // Exception wraps around a pointer to a value of C Exception structure

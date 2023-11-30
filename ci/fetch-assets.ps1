@@ -4,7 +4,7 @@ param (
 )
 
 $assets = New-Item -ItemType Directory -Path assets -Force
-$deviceDetectionData = "$RepoName/dd/device-detection-cxx/device-detection-data"
+$assetsDestination = "$RepoName"
 $file = "51Degrees-LiteV4.1.hash"
 
 if (!(Test-Path $assets/$file)) {
@@ -14,4 +14,4 @@ if (!(Test-Path $assets/$file)) {
     Write-Output "'$file' exists, skipping download"
 }
 
-New-Item -ItemType SymbolicLink -Force -Target "$assets/51Degrees-LiteV4.1.hash" -Path "$deviceDetectionData/51Degrees-LiteV4.1.hash"
+New-Item -ItemType SymbolicLink -Force -Target "$assets/51Degrees-LiteV4.1.hash" -Path "$assetsDestination/51Degrees-LiteV4.1.hash"

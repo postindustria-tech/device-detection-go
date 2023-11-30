@@ -1,3 +1,0 @@
-[submodule "dd/device-detection-cxx"]
-	path = dd/device-detection-cxx
-	url = ../device-detection-cxx
