@@ -31,7 +31,7 @@ Write-Host "# --------------------"
 
 Write-Host ""
 Write-Host "# Check CMake"
-which cmake
+Get-Command cmake
 if (!$?) {
     Write-Host "# ERROR: CMake not found. Please install CMake 3.10 or above."
     exit 1
@@ -39,9 +39,9 @@ if (!$?) {
 
 Write-Host ""
 Write-Host "# Check gcc"
-which gcc
+Get-Command gcc
 if (!$?) {
-    Write-Host "# ERROR: CMake not found. Please install gcc."
+    Write-Host "# ERROR: gcc not found. Please install gcc."
     exit 1
 }
 
@@ -81,13 +81,13 @@ Push-Location ./build
 # Run CMake configure
 if ($IsLinux) {
     Write-Host "# On Linux platform."
-    cmake .. -DCMAKE_BUILD_TYPE=Release $buildFlags
+    cmake .. -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF $buildFlags
 } elseif ($IsMacOS) {
     Write-Host "# On MacOS platform."
-    cmake .. -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_BUILD_TYPE=Release
+    cmake .. -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF
 } elseif ($IsWindows) {
     Write-Host "# On Windows platform."
-    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" $buildFlags
+    cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -G "MinGW Makefiles" $buildFlags
 } else {
     Write-Host "# ERROR: Not supported platform. Exit."
     Pop-Location
