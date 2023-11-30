@@ -23,7 +23,7 @@
 package dd
 
 // #include <string.h>
-// #include "./device-detection-cxx/src/common-cxx/fiftyone.h"
+// #include "device-detection-cxx.h"
 import "C"
 import (
 	"runtime"

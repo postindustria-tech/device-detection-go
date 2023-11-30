@@ -112,9 +112,7 @@ func testDifferentPerformanceProfiles(properties string, testFunc TestFunc, t *t
 func TestMain(m *testing.M) {
 	// Search for test data files
 	dataFiles := []string{testLiteDataFile, testEnterpriseDataFile}
-	filePath, err := GetFilePath(
-		"device-detection-cxx",
-		dataFiles)
+	filePath, err := GetFilePath("..", dataFiles)
 	if err != nil {
 		log.Fatalf("Could not find any file that matches any of \"%s\".\n",
 			strings.Join(dataFiles, ", "))
