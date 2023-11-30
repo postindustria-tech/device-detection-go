@@ -1,3 +1,3 @@
 module github.com/51Degrees/device-detection-go/v4
 
-go 1.17
+go 1.20
