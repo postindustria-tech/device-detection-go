@@ -14,43 +14,35 @@ Go Lite implementation is currently supporting the following platforms and archi
 - Windows 64bit, Intel
 
 Go version:
-- 1.17.1
+- 1.20
 
 ## Pre-requisites
 
 ### Data File
 
-In order to perform device detection, you will need to use a 51Degrees data file. 
-A 'lite' file can be found at [device-detection-data](https://github.com/51degrees/device-detection-data) or in the `dd/device-detection-cxx/device-detection-data` submodule when clone this repository recursively.
-This 'lite' file has a significantly reduced set of properties. To obtain a 
-file with a more complete set of device properties see the 
-[51Degrees website](https://51degrees.com/pricing). 
-If you want to use the lite file, you will need to install [GitLFS](https://git-lfs.github.com/).
-
-For Linux:
-```
-sudo apt-get install git-lfs
-git lfs install
-```
-
-Then, navigate to the `device-detection-data` directory and execute:
+In order to perform device detection, you will need to use a 51Degrees data file.
+A 'lite' file can be found at [device-detection-data](https://github.com/51degrees/device-detection-data). You can run:
 
 ```
-git lfs pull
+pwsh ci/fetch-assets.ps1 .
 ```
+
+Or download [51Degrees-LiteV4.1.hash](https://github.com/51Degrees/device-detection-data/blob/main/51Degrees-LiteV4.1.hash) directly.
+
+This 'lite' file has a significantly reduced set of properties. To obtain a
+file with a more complete set of device properties see the
+[51Degrees website](https://51degrees.com/pricing).
 
 ### Software
 
 In order to build use device-detection-go the following are required:
 - Powershell Core (7 or above)
 - A C compiler that support C11 or above (Gcc on Linux, Clang on MacOS and MinGW-x64 on Windows)
-- A CMake version of 3.10 or above
 - libatomic - which usually come with default Gcc, Clang installation
 
 ## Module and Packages
 
 This module name `device-detection-go` at path `github.com/51Degrees/device-detection-go/v4`
-
 
 This Go Lite version contains only one single package:
 - `dd`
@@ -62,34 +54,17 @@ If you are on Windows, make sure the path to the `MinGW-x64` `bin` folder is inc
 
 ### Build steps for all platforms
 
-Currently, it is recommended to build and use `device-detection-go` by cloning the repository rather than installing via `go mod`. To use `device-detection-go` module, users first need to build the core static libraries. There is a powershell script `prebuild.ps1` located in `dd/scripts` folder that assists on building the core static library providing that all pre-requisites have been satisfied. Run the script as below:
-```
-pwsh -File [path to script]
-```
-
-To build for 32 bit, run:
-```
-pwsh -File [path to script] -32bit
-```
-
-For example, if in `device-detection-go/dd` folder run:
-```
-pwsh -File ./scripts/prebuild.ps1
-```
-
-Make sure to run this script as input to `pwsh`. If `pwsh` is run first to create a powershell environment, any passing argument such as `-32bit` will not be treated correctly.
-
-Once the build is completed, the Device Detection package can be imported and used as below. This uses go module approach. That means a `go.mod` is needed with `github.com/51Degrees/device-detection-go` specified as a dependency; and the module path is replaced with a path to the checked out `device-detection-go` using `go mod edit --replace`:
+Import the package as usual and it will get build automatically:
 
 ```
 import "github.com/51Degrees/device-detection-go/v4/dd"
 ```
 
-### Limitation
+### Vendored C Library
+An amalgamation is an alternative way to distribute a library's source code using only a few files (as low as one or two).
+This go module depends on and ships an amalgamation of the device-detection C-library [device-detection-cxx](https://github.com/51degrees/device-detection-cxx) repository, which is then built automatically by CGo during `go build`.
 
-Using module `device-detection-go` requires the core static libraries to be pre-built, this makes it hard for the module to be installed and used via `go get` or `go install` as these commands do not download the `git` submodules which contains the C library source code. If users wish to use `go get` or `go install`, the approach is to manually checkout the corresponding `device-detection-cxx` and build the static libraries accordingly. Then, copy these libraries to a corresponding subfolder of the downloaded `device-detection-go/dd` packages. The folder should be located at `device-detection-go/dd/device-detection-cxx/build/lib/`. Once this is completed, the package can be imported and used as normal.
-
-The recommended way to use is to clone the repository and follow the prebuild instructions above to build the static libraries. Then reference the package using relative path or replace the path in `go.mod` with the relative path using `go mod edit --replace` command.
+The amalgamation is produced automatically and regularly by the [Nightly Package Update](https://github.com/51Degrees/device-detection-go/actions/workflows/nightly-package-update.yml) CI workflow from the device-detection C-library source code.
 
 ## Test
 
