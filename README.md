@@ -68,10 +68,7 @@ The amalgamation is produced automatically and regularly by the [Nightly Package
 
 ## Test
 
-Unit tests can be run with `go test` as below if in `device-detection-go` folder:
-```
-go test ./...
-```
+Unit tests can be run with `go test` within `dd` directory.
 
 ## APIs
 
