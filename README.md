@@ -21,7 +21,14 @@ Go version:
 ### Data File
 
 In order to perform device detection, you will need to use a 51Degrees data file.
-A 'lite' file can be found at [device-detection-data](https://github.com/51degrees/device-detection-data). The `ci/fetch-assets.ps1` can be used to download it.
+A 'lite' file can be found at [device-detection-data](https://github.com/51degrees/device-detection-data). You can run:
+
+```
+pwsh ci/fetch-assets.ps1 .
+```
+
+Or download [51Degrees-LiteV4.1.hash](https://github.com/51Degrees/device-detection-data/blob/main/51Degrees-LiteV4.1.hash) directly.
+
 This 'lite' file has a significantly reduced set of properties. To obtain a
 file with a more complete set of device properties see the
 [51Degrees website](https://51degrees.com/pricing).
@@ -53,9 +60,11 @@ Import the package as usual and it will get build automatically:
 import "github.com/51Degrees/device-detection-go/v4/dd"
 ```
 
-This is achieved by using an amalgamation of the [device-detection-cxx](https://github.com/51degrees/device-detection-cxx) repository, which is built automatically by CGo during `go build`.
+### Vendored C Library
+An amalgamation is an alternative way to distribute a library's source code using only a few files (as low as one or two).
+This go module depends on and ships an amalgamation of the device-detection C-library [device-detection-cxx](https://github.com/51degrees/device-detection-cxx) repository, which is then built automatically by CGo during `go build`.
 
-The amalgamation is updated regularly by the [Nightly Package Update](https://github.com/51Degrees/device-detection-go/actions/workflows/nightly-package-update.yml) CI workflow.
+The amalgamation is produced automatically and regularly by the [Nightly Package Update](https://github.com/51Degrees/device-detection-go/actions/workflows/nightly-package-update.yml) CI workflow from the device-detection C-library source code.
 
 ## Test
 
