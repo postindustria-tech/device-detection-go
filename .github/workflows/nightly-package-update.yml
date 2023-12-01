@@ -1,4 +1,4 @@
-name: Nightly Submodule Update
+name: Nightly Package Update
 
 on:
   workflow_dispatch:
@@ -11,8 +11,8 @@ on:
     - cron: '0 2 * * *'
 
 jobs:
-  Nightly_Submodule_Update:
-    uses: 51Degrees/common-ci/.github/workflows/nightly-submodule-update.yml@main
+  Nightly_Package_Update:
+    uses: 51Degrees/common-ci/.github/workflows/nightly-package-update.yml@main
     with:
       repo-name: ${{ github.event.repository.name }}
       org-name: ${{ github.event.repository.owner.login }}
