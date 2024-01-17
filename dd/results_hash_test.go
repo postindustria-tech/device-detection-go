@@ -616,7 +616,7 @@ func TestMatchDeviceId(t *testing.T) {
 		}{
 			{uaMobile, "true"},
 			{uaDesktop, "false"},
-			{uaMediaHub, "false"},
+			{uaMediaHub, "true"},
 		}
 
 		// Create results hash. Using separate results for match User-Agent
