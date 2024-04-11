@@ -16,6 +16,10 @@ type Pipeline struct {
 	config                        *dd.ConfigHash
 }
 
+func (p *Pipeline) NewResultsHash(uaCapacity uint32, overridesCapacity uint32) *dd.ResultsHash {
+	return dd.NewResultsHash(p.manager, uaCapacity, overridesCapacity)
+}
+
 // Run starts the pipeline
 func (p *Pipeline) Run() error {
 	dataFile, err := dd.GetFilePath(".", []string{p.dataFile})
