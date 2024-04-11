@@ -40,7 +40,7 @@ func (p *Pipeline) scheduleFilePulling() {
 		fileResponse, err := doDataFileRequest(p.dataFileUrl)
 		if err != nil {
 			p.logger.Printf("failed to pull data file: %v", err)
-			if fileResponse.retryAfter > 0 {
+			if fileResponse != nil && fileResponse.retryAfter > 0 {
 				p.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
 
 				// retry after the specified time

@@ -16,6 +16,9 @@ type Pipeline struct {
 	config                        *dd.ConfigHash
 }
 
+// NewResultsHash creates a new ResultsHash object
+// uaCapacity is the initial capacity of the User-Agent cache
+// overridesCapacity is the initial capacity of the overrides cache
 func (p *Pipeline) NewResultsHash(uaCapacity uint32, overridesCapacity uint32) *dd.ResultsHash {
 	return dd.NewResultsHash(p.manager, uaCapacity, overridesCapacity)
 }
