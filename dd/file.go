@@ -37,17 +37,21 @@ import (
 // including the subdirectories. The directory is a relative path to the current
 // directory of the caller file.
 func GetFilePath(dir string, names []string) (found string, err error) {
-	path, e := os.Getwd()
-	if e != nil {
-		log.Fatalln("Failed to get current directory.")
-	}
-
 	// Target directory
-	path += "/" + dir
+	var path string
+	if filepath.IsAbs(dir) {
+		path = dir
+	} else {
+		rootDir, e := os.Getwd()
+		if e != nil {
+			log.Fatalln("Failed to get current directory.")
+		}
+		path = filepath.Join(rootDir, dir)
+	}
 
 	// walk through the directory
 	foundPath := ""
-	e = filepath.Walk(path, func(path string, info fs.FileInfo, err error) error {
+	e := filepath.Walk(path, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			log.Printf("Error \"%s\" occured on path \"%s\".\n",
 				err,
