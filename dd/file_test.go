@@ -77,8 +77,9 @@ func testGetFilePath(t *testing.T, pathInputs []string, fileName, result string)
 			t.Errorf("Error getting paths: %v", err)
 		}
 		if result != resPath {
-			t.Errorf("Expected to have %s path but got %s.\n",
+			t.Errorf("Expected to have %s path from %s input, but got %s instead.\n",
 				result,
+				path,
 				resPath)
 		}
 	}
