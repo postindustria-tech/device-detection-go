@@ -45,27 +45,43 @@ func initTestFiles(t *testing.T) testFilesPath {
 	if err != nil {
 		t.Fatalf("Error creating test root directory: %v", err)
 	}
+	realRootDir, err := filepath.EvalSymlinks(rootDir)
+	if err != nil {
+		t.Fatalf("Error resolving symbolic link: %v", err)
+	}
 
 	osFile1, err := os.CreateTemp(rootDir, "test_file1")
 	if err != nil {
 		t.Fatalf("Error creating test file1: %v", err)
+	}
+	realFile1, err := filepath.EvalSymlinks(osFile1.Name())
+	if err != nil {
+		t.Fatalf("Error resolving symbolic link: %v", err)
 	}
 
 	subDir, err := os.MkdirTemp(rootDir, "sub_dir")
 	if err != nil {
 		t.Fatalf("Error creating test sub directory: %v", err)
 	}
+	realSubDir, err := filepath.EvalSymlinks(subDir)
+	if err != nil {
+		t.Fatalf("Error resolving symbolic link: %v", err)
+	}
 
 	osFile2, err := os.CreateTemp(subDir, "test_file2")
 	if err != nil {
 		t.Fatalf("Error creating test file2: %v", err)
 	}
+	realFile2, err := filepath.EvalSymlinks(osFile2.Name())
+	if err != nil {
+		t.Fatalf("Error resolving symbolic link: %v", err)
+	}
 
 	return testFilesPath{
-		RootDir: rootDir,
-		SubDir:  subDir,
-		File1:   osFile1.Name(),
-		File2:   osFile2.Name(),
+		RootDir: realRootDir,
+		SubDir:  realSubDir,
+		File1:   realFile1,
+		File2:   realFile2,
 	}
 }
 
