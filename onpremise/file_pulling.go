@@ -1,19 +1,21 @@
-package pipeline
+package onpremise
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 )
 
+const retryMs = 1000
+
 // scheduleFilePulling schedules the file pulling
-func (p *Pipeline) scheduleFilePulling() {
+func (p *Engine) scheduleFilePulling() {
 	// recover from panic
 	// if panic occurs, we will log the error and restart the file pulling
 	defer func() {
@@ -49,40 +51,67 @@ func (p *Pipeline) scheduleFilePulling() {
 				p.logger.Printf("retrying after 1 second")
 				// retry after 1 second, since we have unhandled error
 				// this can happen from network stutter or something else
-				nextIterationInMs = 1000
+				nextIterationInMs = retryMs
 			}
 			continue
 		}
 
-		p.logger.Printf("data file pulled successfully")
+		p.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
+
+		err = p.createDatafileIfNotExists()
+		if err != nil {
+			p.logger.Printf("failed to create data file: %v", err)
+			// retry after 1 second, since we have unhandled error
+			// this can happen from disk write error or something else
+			nextIterationInMs = retryMs
+			continue
+		}
 
 		// write to dataFile
-		err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), 0644)
+		err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), os.ModeAppend)
 		if err != nil {
 			p.logger.Printf("failed to write data file: %v", err)
 			// retry after 1 second, since we have unhandled error
 			// this can happen from disk write error or something else
-			nextIterationInMs = 1000
+			nextIterationInMs = retryMs
 			continue
 		}
 		p.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
+		if !p.isManagerInitialized {
+			err = p.initializeManager()
+			if err != nil {
+				p.logger.Printf("failed to initialize manager: %v", err)
+				// retry after 1 second, since we have unhandled error
+				// this can happen from manager initialization error or something else
+				nextIterationInMs = retryMs
+				continue
+			}
+		}
+
 		err = p.manager.ReloadFromOriginalFile()
-		p.logger.Printf("data file reloaded successfully")
 		if err != nil {
 			p.logger.Printf("failed to reload data file: %v", err)
 			// retry after 1 second, since we have unhandled error
 			// this can happen from reload error or something else
-			nextIterationInMs = 1000
+			nextIterationInMs = retryMs
 			continue
 		}
+		p.logger.Printf("data file reloaded successfully")
+
+		if !p.fileSynced {
+			p.fileSynced = true
+			p.rdySignal <- struct{}{}
+		}
+
 		// reset nextIterationInMs
 		nextIterationInMs = p.dataFilePullEveryMs
+		p.totalFilePulls += 1
 	}
 }
 
 type FileResponse struct {
-	buffer     bytes.Buffer
+	buffer     *bytes.Buffer
 	retryAfter int
 }
 
@@ -116,11 +145,23 @@ func doDataFileRequest(url string) (*FileResponse, error) {
 		return nil, fmt.Errorf("failed to pull data file: %s", resp.Status)
 	}
 
+	buffer := bytes.NewBuffer(make([]byte, 0))
+	_, err = buffer.ReadFrom(resp.Body)
 	contentMD5 := resp.Header.Get("Content-MD5")
 
-	fmt.Printf("Content-MD5: %s\n", contentMD5)
+	fileBytes, err := gzip.NewReader(buffer)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decompress file: %v", err)
+	}
 
-	isValid, err := validateMd5(resp.Body, contentMD5)
+	uncompressedBuffer := bytes.NewBuffer(make([]byte, 0))
+	_, err = uncompressedBuffer.ReadFrom(fileBytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read decompressed file: %v", err)
+	}
+	uncompressedBytes := uncompressedBuffer.Bytes()
+
+	isValid, err := validateMd5(uncompressedBytes, contentMD5)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate MD5: %v", err)
 	}
@@ -129,24 +170,20 @@ func doDataFileRequest(url string) (*FileResponse, error) {
 		return nil, fmt.Errorf("MD5 validation failed")
 	}
 
-	var buffer bytes.Buffer
-	_, err = io.Copy(&buffer, resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
-	}
-
 	return &FileResponse{
-		buffer:     buffer,
+		buffer:     bytes.NewBuffer(uncompressedBytes),
 		retryAfter: 0,
 	}, nil
 }
 
-func validateMd5(body io.ReadCloser, hash string) (bool, error) {
+func validateMd5(val []byte, hash string) (bool, error) {
 	h := md5.New()
-	_, err := io.Copy(h, body)
+	_, err := h.Write(val)
 	if err != nil {
 		return false, err
 	}
 
-	return hex.EncodeToString(h.Sum(nil)) == hash, nil
+	strVal := hex.EncodeToString(h.Sum(nil))
+
+	return strVal == hash, nil
 }

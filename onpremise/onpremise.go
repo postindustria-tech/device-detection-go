@@ -1,8 +1,12 @@
-package pipeline
+package onpremise
 
-import "github.com/51Degrees/device-detection-go/v4/dd"
+import (
+	"fmt"
+	"github.com/51Degrees/device-detection-go/v4/dd"
+	"os"
+)
 
-type Pipeline struct {
+type Engine struct {
 	logger                        logWrapper
 	dataFile                      string
 	licenceKey                    string
@@ -14,27 +18,26 @@ type Pipeline struct {
 	loggerEnabled                 bool
 	manager                       *dd.ResourceManager
 	config                        *dd.ConfigHash
+	totalFilePulls                int
+	rdySignal                     chan struct{}
+	fileSynced                    bool
+	isManagerInitialized          bool
 }
 
 // NewResultsHash creates a new ResultsHash object
 // uaCapacity is the initial capacity of the User-Agent cache
 // overridesCapacity is the initial capacity of the overrides cache
-func (p *Pipeline) NewResultsHash(uaCapacity uint32, overridesCapacity uint32) *dd.ResultsHash {
+func (p *Engine) NewResultsHash(uaCapacity uint32, overridesCapacity uint32) *dd.ResultsHash {
 	return dd.NewResultsHash(p.manager, uaCapacity, overridesCapacity)
 }
 
-// Run starts the pipeline
-func (p *Pipeline) Run() error {
-	dataFile, err := dd.GetFilePath(".", []string{p.dataFile})
-	if err != nil {
-		return err
-	}
-	p.dataFile = dataFile
-
-	// TODO: what are properties of dd.ResourceManager?
-	err = dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
-	if err != nil {
-		return err
+// run starts the pipeline
+func (p *Engine) run() error {
+	if len(p.dataFile) > 0 {
+		err := p.initializeManager()
+		if err != nil {
+			return err
+		}
 	}
 
 	if p.isScheduledFilePullingEnabled {
@@ -44,23 +47,50 @@ func (p *Pipeline) Run() error {
 	return nil
 }
 
-type PipelineOptions func(cfg *Pipeline) error
+func (p *Engine) initializeManager() error {
+	dataFile, err := dd.GetFilePath(".", []string{p.dataFile})
+	if err != nil {
+		return fmt.Errorf("failed to get file path: %w", err)
+	}
+	p.dataFile = dataFile
 
-// what should this do? c# has it and it's used in the example.
-func UseOnPremise(dataFile, licenceKey string, createTempDataCopy bool) PipelineOptions {
+	err = dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
+	if err != nil {
+		return fmt.Errorf("failed to init manager from file: %w", err)
+	}
+	p.isManagerInitialized = true
 
-	return func(cfg *Pipeline) error {
-		cfg.dataFile = dataFile
-		cfg.licenceKey = licenceKey
-		cfg.createTempDataCopy = createTempDataCopy
+	return nil
+}
 
+func (p *Engine) createDatafileIfNotExists() error {
+	_, err := os.Stat(p.dataFile)
+	if err != nil {
+		if len(p.dataFile) == 0 {
+			p.dataFile = "data.hash"
+		}
+
+		_, err = os.Create(p.dataFile)
+		if err != nil {
+			return fmt.Errorf("failed to create data file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+type PipelineOptions func(cfg *Engine) error
+
+func WithDataFile(path string) PipelineOptions {
+	return func(cfg *Engine) error {
+		cfg.dataFile = path
 		return nil
 	}
 }
 
 // WithDataUpdateUrl sets the URL to pull data from and the interval in milliseconds
 func WithDataUpdateUrl(url string, everyMs int) PipelineOptions {
-	return func(cfg *Pipeline) error {
+	return func(cfg *Engine) error {
 		cfg.dataFileUrl = url
 		cfg.dataFilePullEveryMs = everyMs
 		cfg.isScheduledFilePullingEnabled = true
@@ -71,7 +101,7 @@ func WithDataUpdateUrl(url string, everyMs int) PipelineOptions {
 
 // ToggleLogger enables or disables the logger
 func ToggleLogger(enabled bool) PipelineOptions {
-	return func(cfg *Pipeline) error {
+	return func(cfg *Engine) error {
 		cfg.logger.enabled = enabled
 		return nil
 	}
@@ -79,7 +109,7 @@ func ToggleLogger(enabled bool) PipelineOptions {
 
 // WithCustomLogger sets a custom logger
 func WithCustomLogger(logger LogWriter) PipelineOptions {
-	return func(cfg *Pipeline) error {
+	return func(cfg *Engine) error {
 		cfg.logger = logWrapper{
 			enabled: true,
 			logger:  logger,
@@ -90,14 +120,16 @@ func WithCustomLogger(logger LogWriter) PipelineOptions {
 
 }
 
-func New(manager *dd.ResourceManager, config *dd.ConfigHash, opts ...PipelineOptions) (*Pipeline, error) {
-	pl := &Pipeline{
+func New(manager *dd.ResourceManager, config *dd.ConfigHash, opts ...PipelineOptions) (*Engine, error) {
+	pl := &Engine{
 		logger: logWrapper{
 			logger:  DefaultLogger,
 			enabled: true,
 		},
-		manager: manager,
-		config:  config,
+		manager:    manager,
+		config:     config,
+		rdySignal:  make(chan struct{}, 1),
+		fileSynced: false,
 	}
 
 	for _, opt := range opts {
@@ -106,6 +138,15 @@ func New(manager *dd.ResourceManager, config *dd.ConfigHash, opts ...PipelineOpt
 			return nil, err
 		}
 	}
+
+	err := pl.run()
+	if err != nil {
+		return nil, err
+	}
+
+	//wait for first file pull
+	<-pl.rdySignal
+	close(pl.rdySignal)
 
 	return pl, nil
 }
