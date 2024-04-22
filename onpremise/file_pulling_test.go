@@ -82,9 +82,9 @@ func TestFilePulling(t *testing.T) {
 		t.Fatalf("Failed to create pipeline: %v", err)
 	}
 
-	<-time.After(2500 * time.Millisecond)
+	<-time.After(5000 * time.Millisecond)
 
-	if pl.totalFilePulls != 1 {
+	if pl.totalFilePulls != 2 {
 		t.Fatalf("Expected 2 file pulls, got %d", pl.totalFilePulls)
 	}
 }
