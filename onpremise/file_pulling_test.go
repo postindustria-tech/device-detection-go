@@ -5,6 +5,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"github.com/51Degrees/device-detection-go/v4/dd"
+	"log"
+
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -19,8 +21,9 @@ func newMockDataFileServer() *httptest.Server {
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				// Open the file for reading
-				file, err := os.Open("./datafile_mock.hash")
+				file, err := os.Open("./mock_hash.gz")
 				if err != nil {
+					log.Printf("Failed to open file: %v", err)
 					return
 				}
 				defer file.Close()
@@ -28,16 +31,11 @@ func newMockDataFileServer() *httptest.Server {
 				buffer := bytes.NewBuffer(make([]byte, 0))
 				_, err = io.Copy(buffer, file)
 				if err != nil {
+					log.Printf("Failed to read file: %v", err)
 					return
 				}
 
-				hash, err := fileToMd5(buffer)
-				if err != nil {
-					return
-				}
-
-				w.Header().Add("Content-MD5", hash)
-				w.Header().Add("Content-Type", http.DetectContentType([]byte(hash)))
+				w.Header().Add("Content-MD5", "4192ecba8d3e1a2f1c2f0644cd4322c6")
 				w.Header().Add("Content-Length", strconv.Itoa(buffer.Len()))
 
 				w.WriteHeader(http.StatusOK)
@@ -45,6 +43,7 @@ func newMockDataFileServer() *httptest.Server {
 				// Write the file to response
 				_, err = io.Copy(w, buffer)
 				if err != nil {
+					log.Printf("Failed to write file: %v", err)
 					return
 				}
 
