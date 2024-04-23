@@ -31,7 +31,7 @@ func (p *Engine) NewResultsHash(uaCapacity uint32, overridesCapacity uint32) *dd
 	return dd.NewResultsHash(p.manager, uaCapacity, overridesCapacity)
 }
 
-// run starts the pipeline
+// run starts the engine
 func (p *Engine) run() error {
 	if len(p.dataFile) > 0 {
 		err := p.initializeManager()
@@ -79,9 +79,9 @@ func (p *Engine) createDatafileIfNotExists() error {
 	return nil
 }
 
-type PipelineOptions func(cfg *Engine) error
+type EngineOptions func(cfg *Engine) error
 
-func WithDataFile(path string) PipelineOptions {
+func WithDataFile(path string) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.dataFile = path
 		return nil
@@ -89,7 +89,7 @@ func WithDataFile(path string) PipelineOptions {
 }
 
 // WithDataUpdateUrl sets the URL to pull data from and the interval in milliseconds
-func WithDataUpdateUrl(url string, everyMs int) PipelineOptions {
+func WithDataUpdateUrl(url string, everyMs int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.dataFileUrl = url
 		cfg.dataFilePullEveryMs = everyMs
@@ -100,7 +100,7 @@ func WithDataUpdateUrl(url string, everyMs int) PipelineOptions {
 }
 
 // ToggleLogger enables or disables the logger
-func ToggleLogger(enabled bool) PipelineOptions {
+func ToggleLogger(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.logger.enabled = enabled
 		return nil
@@ -108,7 +108,7 @@ func ToggleLogger(enabled bool) PipelineOptions {
 }
 
 // WithCustomLogger sets a custom logger
-func WithCustomLogger(logger LogWriter) PipelineOptions {
+func WithCustomLogger(logger LogWriter) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.logger = logWrapper{
 			enabled: true,
@@ -120,7 +120,9 @@ func WithCustomLogger(logger LogWriter) PipelineOptions {
 
 }
 
-func New(manager *dd.ResourceManager, config *dd.ConfigHash, opts ...PipelineOptions) (*Engine, error) {
+func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
+	manager := dd.NewResourceManager()
+
 	pl := &Engine{
 		logger: logWrapper{
 			logger:  DefaultLogger,
@@ -149,4 +151,8 @@ func New(manager *dd.ResourceManager, config *dd.ConfigHash, opts ...PipelineOpt
 	close(pl.rdySignal)
 
 	return pl, nil
+}
+
+func (p *Engine) Stop() {
+	p.manager.Free()
 }

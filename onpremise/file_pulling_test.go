@@ -67,11 +67,9 @@ func TestFilePulling(t *testing.T) {
 	server := newMockDataFileServer()
 	defer server.Close()
 
-	manager := dd.NewResourceManager()
 	config := dd.NewConfigHash(dd.Balanced)
 
 	pl, err := New(
-		manager,
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
