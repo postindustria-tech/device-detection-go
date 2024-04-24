@@ -286,16 +286,13 @@ func (p *Engine) appendProduct() error {
 }
 
 var (
-	ErrLicenceKeyAndProductOnlyWithDefaultDataFileUrl = errors.New("licence key and product can only be set when using default data file url")
-	ErrLicenceKeyAndProductRequired                   = errors.New("licence key and product are required")
+	ErrLicenceKeyAndProductRequired = errors.New("licence key and product are required")
 )
 
 func (p *Engine) validateAndAppendUrlParams() error {
-	if !p.isDefaultDataFileUrl() && p.hasSomeDistributorParams() {
-		return ErrLicenceKeyAndProductOnlyWithDefaultDataFileUrl
-	} else if p.isDefaultDataFileUrl() && !p.hasDefaultDistributorParams() {
+	if p.isDefaultDataFileUrl() && !p.hasDefaultDistributorParams() && p.isScheduledFilePullingEnabled {
 		return ErrLicenceKeyAndProductRequired
-	} else if p.isDefaultDataFileUrl() {
+	} else if p.isDefaultDataFileUrl() && p.isScheduledFilePullingEnabled {
 		err := p.appendLicenceKey()
 		if err != nil {
 			return err

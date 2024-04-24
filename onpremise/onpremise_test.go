@@ -38,7 +38,7 @@ func TestCustomProvider(t *testing.T) {
 				SetLicenceKey("123"),
 				WithDataUpdateUrl(mockServer.URL+"/datafile", 2000),
 			},
-			expectedError: ErrLicenceKeyAndProductOnlyWithDefaultDataFileUrl.Error(),
+			expectedError: "",
 		},
 		{
 			name: "with product and custom url",
@@ -46,7 +46,7 @@ func TestCustomProvider(t *testing.T) {
 				SetProduct("MyProduct"),
 				WithDataUpdateUrl(mockServer.URL+"/datafile", 2000),
 			},
-			expectedError: ErrLicenceKeyAndProductOnlyWithDefaultDataFileUrl.Error(),
+			expectedError: "",
 		},
 		{
 			name: "Invalid url",
@@ -61,6 +61,13 @@ func TestCustomProvider(t *testing.T) {
 				WithDataUpdateUrl(mockServer.URL+"/datafile", 2000),
 			},
 			expectedError: "",
+		},
+		{
+			name: "with data file",
+			engineOptions: []EngineOptions{
+				WithDataFile("non existing file"),
+			},
+			expectedError: "failed to get file path: file does not exist",
 		},
 	}
 
