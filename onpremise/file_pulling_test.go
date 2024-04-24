@@ -2,8 +2,6 @@ package onpremise
 
 import (
 	"bytes"
-	"crypto/md5"
-	"encoding/hex"
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"log"
 
@@ -52,17 +50,6 @@ func newMockDataFileServer() *httptest.Server {
 	)
 }
 
-func fileToMd5(file *bytes.Buffer) (string, error) {
-	buf2 := bytes.NewBuffer(file.Bytes())
-	h := md5.New()
-	_, err := io.Copy(h, buf2)
-	if err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(h.Sum(nil)), nil
-}
-
 func TestFilePulling(t *testing.T) {
 	server := newMockDataFileServer()
 	defer server.Close()
@@ -77,12 +64,76 @@ func TestFilePulling(t *testing.T) {
 		),
 	)
 	if err != nil {
-		t.Fatalf("Failed to create pipeline: %v", err)
+		t.Fatalf("Failed to create engine: %v", err)
 	}
 
 	<-time.After(5000 * time.Millisecond)
 
 	if pl.totalFilePulls != 2 {
 		t.Fatalf("Expected 2 file pulls, got %d", pl.totalFilePulls)
+	}
+
+	resultsHash, err := pl.Process(
+		[]Evidence{
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Arch",
+				Value:  "x86",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Model",
+				Value:  "Intel",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Mobile",
+				Value:  "?0",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Platform",
+				Value:  "Windows",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Platform-Version",
+				Value:  "10.0",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Full-Version-List",
+				Value:  "58.0.3029.110",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua",
+				Value:  `"\"Chromium\";v=\"91.0.4472.124\";a=\"x86\";p=\"Windows\";rv=\"91.0\""`,
+			},
+		},
+	)
+	defer resultsHash.Free()
+	if err != nil {
+		t.Fatalf("Failed to process evidence: %v", err)
+	}
+
+	browser, err := resultsHash.ValuesString("BrowserName", ",")
+	if err != nil {
+		log.Fatalf("Failed to get BrowserName: %v", err)
+	}
+
+	if browser != "Chromium Project" {
+		t.Fatalf("Expected BrowserName to be Chromium Project, got %s", browser)
+	}
+
+	log.Printf("BrowserName: %s", browser)
+
+	deviceType, err := resultsHash.ValuesString("DeviceType", ",")
+	if err != nil {
+		log.Fatalf("Failed to get DeviceType: %v", err)
+	}
+
+	if deviceType != "Desktop" {
+		t.Fatalf("Expected DeviceType to be Desktop, got %s", deviceType)
 	}
 }

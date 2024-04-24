@@ -24,13 +24,6 @@ type Engine struct {
 	isManagerInitialized          bool
 }
 
-// NewResultsHash creates a new ResultsHash object
-// uaCapacity is the initial capacity of the User-Agent cache
-// overridesCapacity is the initial capacity of the overrides cache
-func (p *Engine) NewResultsHash(uaCapacity uint32, overridesCapacity uint32) *dd.ResultsHash {
-	return dd.NewResultsHash(p.manager, uaCapacity, overridesCapacity)
-}
-
 // run starts the engine
 func (p *Engine) run() error {
 	if len(p.dataFile) > 0 {
@@ -151,6 +144,40 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 	close(pl.rdySignal)
 
 	return pl, nil
+}
+
+type Evidence struct {
+	Prefix dd.EvidencePrefix
+	Key    string
+	Value  string
+}
+
+func (p *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
+	evidenceHash, err := mapEvidence(evidences)
+	if err != nil {
+		return nil, err
+	}
+
+	results := dd.NewResultsHash(p.manager, uint32(evidenceHash.Count()), 0)
+	err = results.MatchEvidence(evidenceHash)
+	if err != nil {
+		return nil, fmt.Errorf("failed to match evidence: %w", err)
+	}
+
+	return results, nil
+}
+
+func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
+	evidenceHash := dd.NewEvidenceHash(uint32(len(evidences)))
+
+	for _, evidence := range evidences {
+		err := evidenceHash.Add(evidence.Prefix, evidence.Key, evidence.Value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add evidence: %w", err)
+		}
+	}
+
+	return evidenceHash, nil
 }
 
 func (p *Engine) Stop() {
