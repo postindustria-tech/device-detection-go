@@ -145,6 +145,7 @@ func TestTooManyRetries(t *testing.T) {
 		config,
 		SetLicenceKey("123"),
 		SetProduct("MyProduct"),
+		SetMaxRetries(5),
 	)
 	if !errors.Is(err, ErrTooManyRetries) {
 		t.Fatalf("Expected error to be ErrTooManyRetries, got %v", err)

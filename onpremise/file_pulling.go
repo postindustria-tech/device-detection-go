@@ -40,9 +40,11 @@ func (p *Engine) scheduleFilePulling() {
 		case <-p.stopCh:
 			return
 		default:
-			if retryAttempts > 5 && !p.isManagerInitialized {
-				p.rdySignal <- ErrTooManyRetries
-				return
+			if p.maxRetries > 0 {
+				if retryAttempts > p.maxRetries && !p.isManagerInitialized {
+					p.rdySignal <- ErrTooManyRetries
+					return
+				}
 			}
 
 			// if this is the first run, we don't need to wait

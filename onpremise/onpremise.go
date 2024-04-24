@@ -26,6 +26,7 @@ type Engine struct {
 	fileSynced                    bool
 	isManagerInitialized          bool
 	product                       string
+	maxRetries                    int
 }
 
 const (
@@ -131,6 +132,14 @@ func WithDataUpdateUrl(urlStr string, everyMs int) EngineOptions {
 
 		return nil
 	}
+}
+
+func SetMaxRetries(retries int) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.maxRetries = retries
+		return nil
+	}
+
 }
 
 // ToggleLogger enables or disables the logger
