@@ -1,8 +1,10 @@
 package onpremise
 
 import (
+	"errors"
 	"fmt"
 	"github.com/51Degrees/device-detection-go/v4/dd"
+	"net/url"
 	"os"
 )
 
@@ -19,10 +21,16 @@ type Engine struct {
 	manager                       *dd.ResourceManager
 	config                        *dd.ConfigHash
 	totalFilePulls                int
-	rdySignal                     chan struct{}
+	rdySignal                     chan error
+	stopCh                        chan struct{}
 	fileSynced                    bool
 	isManagerInitialized          bool
+	product                       string
 }
+
+const (
+	defaultDataFileUrl = "https://distributor.51degrees.com/api/v2/download?Type=HashV41&Download=True&Product=V4TAC"
+)
 
 // run starts the engine
 func (p *Engine) run() error {
@@ -31,6 +39,11 @@ func (p *Engine) run() error {
 		if err != nil {
 			return err
 		}
+	}
+
+	err := p.validateAndAppendUrlParams()
+	if err != nil {
+		return err
 	}
 
 	if p.isScheduledFilePullingEnabled {
@@ -81,10 +94,38 @@ func WithDataFile(path string) EngineOptions {
 	}
 }
 
-// WithDataUpdateUrl sets the URL to pull data from and the interval in milliseconds
-func WithDataUpdateUrl(url string, everyMs int) EngineOptions {
+func SetLicenceKey(key string) EngineOptions {
 	return func(cfg *Engine) error {
-		cfg.dataFileUrl = url
+		if !cfg.isDefaultDataFileUrl() {
+			return errors.New("licence key can only be set when using default data file url")
+		}
+		cfg.licenceKey = key
+		cfg.isScheduledFilePullingEnabled = true
+		return nil
+	}
+}
+
+func SetProduct(product string) EngineOptions {
+	return func(cfg *Engine) error {
+		if !cfg.isDefaultDataFileUrl() {
+			return errors.New("product can only be set when using default data file url")
+		}
+
+		cfg.product = product
+		cfg.isScheduledFilePullingEnabled = true
+		return nil
+	}
+}
+
+// WithDataUpdateUrl sets the URL to pull data from and the interval in milliseconds
+func WithDataUpdateUrl(urlStr string, everyMs int) EngineOptions {
+	return func(cfg *Engine) error {
+		_, err := url.ParseRequestURI(urlStr)
+		if err != nil {
+			return err
+		}
+
+		cfg.dataFileUrl = urlStr
 		cfg.dataFilePullEveryMs = everyMs
 		cfg.isScheduledFilePullingEnabled = true
 
@@ -121,27 +162,37 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 			logger:  DefaultLogger,
 			enabled: true,
 		},
-		manager:    manager,
-		config:     config,
-		rdySignal:  make(chan struct{}, 1),
-		fileSynced: false,
+		manager:     manager,
+		config:      config,
+		rdySignal:   make(chan error, 1),
+		stopCh:      make(chan struct{}, 1),
+		fileSynced:  false,
+		dataFileUrl: defaultDataFileUrl,
 	}
 
 	for _, opt := range opts {
 		err := opt(pl)
 		if err != nil {
+			pl.Stop()
 			return nil, err
 		}
 	}
 
 	err := pl.run()
 	if err != nil {
+		pl.Stop()
 		return nil, err
 	}
 
-	//wait for first file pull
-	<-pl.rdySignal
-	close(pl.rdySignal)
+	if pl.isScheduledFilePullingEnabled && !pl.isManagerInitialized {
+		//wait for first file pull
+		err := <-pl.rdySignal
+		defer close(pl.rdySignal)
+		if err != nil {
+			pl.Stop()
+			return nil, err
+		}
+	}
 
 	return pl, nil
 }
@@ -157,6 +208,7 @@ func (p *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer evidenceHash.Free()
 
 	results := dd.NewResultsHash(p.manager, uint32(evidenceHash.Count()), 0)
 	err = results.MatchEvidence(evidenceHash)
@@ -181,5 +233,77 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 }
 
 func (p *Engine) Stop() {
-	p.manager.Free()
+	p.stopCh <- struct{}{}
+	if p.manager != nil {
+		p.manager.Free()
+	}
+	close(p.stopCh)
+}
+
+func (p *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
+	return p.manager.HttpHeaderKeys
+}
+
+func (p *Engine) appendLicenceKey() error {
+	urlParsed, err := url.Parse(p.dataFileUrl)
+	if err != nil {
+		return err
+	}
+	query := urlParsed.Query()
+	query.Set("LicenseKeys", p.licenceKey)
+	urlParsed.RawQuery = query.Encode()
+
+	p.dataFileUrl = urlParsed.String()
+
+	return nil
+}
+
+func (p *Engine) isDefaultDataFileUrl() bool {
+	return p.dataFileUrl == defaultDataFileUrl
+}
+
+func (p *Engine) appendProduct() error {
+	urlParsed, err := url.Parse(p.dataFileUrl)
+	if err != nil {
+		return fmt.Errorf("failed to parse data file url: %w", err)
+	}
+	query := urlParsed.Query()
+	query.Set("Product", p.product)
+	urlParsed.RawQuery = query.Encode()
+
+	p.dataFileUrl = urlParsed.String()
+
+	return nil
+}
+
+var (
+	ErrLicenceKeyAndProductOnlyWithDefaultDataFileUrl = errors.New("licence key and product can only be set when using default data file url")
+	ErrLicenceKeyAndProductRequired                   = errors.New("licence key and product are required")
+)
+
+func (p *Engine) validateAndAppendUrlParams() error {
+	if !p.isDefaultDataFileUrl() && p.hasSomeDistributorParams() {
+		return ErrLicenceKeyAndProductOnlyWithDefaultDataFileUrl
+	} else if p.isDefaultDataFileUrl() && !p.hasDefaultDistributorParams() {
+		return ErrLicenceKeyAndProductRequired
+	} else if p.isDefaultDataFileUrl() {
+		err := p.appendLicenceKey()
+		if err != nil {
+			return err
+		}
+		err = p.appendProduct()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *Engine) hasDefaultDistributorParams() bool {
+	return len(p.licenceKey) > 0 && len(p.product) > 0
+}
+
+func (p *Engine) hasSomeDistributorParams() bool {
+	return len(p.licenceKey) > 0 || len(p.product) > 0
 }

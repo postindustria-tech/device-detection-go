@@ -2,6 +2,7 @@ package onpremise
 
 import (
 	"bytes"
+	"errors"
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"log"
 
@@ -136,4 +137,17 @@ func TestFilePulling(t *testing.T) {
 	if deviceType != "Desktop" {
 		t.Fatalf("Expected DeviceType to be Desktop, got %s", deviceType)
 	}
+}
+
+func TestTooManyRetries(t *testing.T) {
+	config := dd.NewConfigHash(dd.Balanced)
+	_, err := New(
+		config,
+		SetLicenceKey("123"),
+		SetProduct("MyProduct"),
+	)
+	if !errors.Is(err, ErrTooManyRetries) {
+		t.Fatalf("Expected error to be ErrTooManyRetries, got %v", err)
+	}
+
 }

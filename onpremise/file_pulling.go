@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -13,6 +14,10 @@ import (
 )
 
 const retryMs = 1000
+
+var (
+	ErrTooManyRetries = errors.New("too many retries to pull data file")
+)
 
 // scheduleFilePulling schedules the file pulling
 func (p *Engine) scheduleFilePulling() {
@@ -28,85 +33,104 @@ func (p *Engine) scheduleFilePulling() {
 	nextIterationInMs := p.dataFilePullEveryMs
 
 	isFirstRun := true
+	retryAttempts := 0
 
 	for {
-		// if this is the first run, we don't need to wait
-		if isFirstRun {
-			isFirstRun = false
-		} else {
-			<-time.After(time.Duration(nextIterationInMs) * time.Millisecond)
-		}
-
-		p.logger.Printf("Pulling data from %s", p.dataFileUrl)
-
-		fileResponse, err := doDataFileRequest(p.dataFileUrl)
-		if err != nil {
-			p.logger.Printf("failed to pull data file: %v", err)
-			if fileResponse != nil && fileResponse.retryAfter > 0 {
-				p.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
-
-				// retry after the specified time
-				nextIterationInMs = fileResponse.retryAfter * 1000
-			} else {
-				p.logger.Printf("retrying after 1 second")
-				// retry after 1 second, since we have unhandled error
-				// this can happen from network stutter or something else
-				nextIterationInMs = retryMs
+		select {
+		case <-p.stopCh:
+			return
+		default:
+			if retryAttempts > 5 && !p.isManagerInitialized {
+				p.rdySignal <- ErrTooManyRetries
+				return
 			}
-			continue
-		}
 
-		p.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
+			// if this is the first run, we don't need to wait
+			if isFirstRun {
+				isFirstRun = false
+			} else {
+				<-time.After(time.Duration(nextIterationInMs) * time.Millisecond)
+			}
 
-		err = p.createDatafileIfNotExists()
-		if err != nil {
-			p.logger.Printf("failed to create data file: %v", err)
-			// retry after 1 second, since we have unhandled error
-			// this can happen from disk write error or something else
-			nextIterationInMs = retryMs
-			continue
-		}
+			p.logger.Printf("Pulling data from %s", p.dataFileUrl)
 
-		// write to dataFile
-		err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), os.ModeAppend)
-		if err != nil {
-			p.logger.Printf("failed to write data file: %v", err)
-			// retry after 1 second, since we have unhandled error
-			// this can happen from disk write error or something else
-			nextIterationInMs = retryMs
-			continue
-		}
-		p.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
-
-		if !p.isManagerInitialized {
-			err = p.initializeManager()
+			fileResponse, err := doDataFileRequest(p.dataFileUrl)
 			if err != nil {
-				p.logger.Printf("failed to initialize manager: %v", err)
+				p.logger.Printf("failed to pull data file: %v", err)
+				if fileResponse != nil && fileResponse.retryAfter > 0 {
+					if p.isManagerInitialized && p.fileSynced {
+						p.rdySignal <- nil
+					}
+					p.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
+					// retry after the specified time
+					nextIterationInMs = fileResponse.retryAfter * 1000
+				} else {
+					p.logger.Printf("retrying after 1 second")
+					retryAttempts += 1
+					// retry after 1 second, since we have unhandled error
+					// this can happen from network stutter or something else
+					nextIterationInMs = retryMs
+				}
+				continue
+			}
+
+			p.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
+
+			err = p.createDatafileIfNotExists()
+			if err != nil {
+				p.logger.Printf("failed to create data file: %v", err)
 				// retry after 1 second, since we have unhandled error
-				// this can happen from manager initialization error or something else
+				// this can happen from disk write error or something else
+				retryAttempts += 1
 				nextIterationInMs = retryMs
 				continue
 			}
-		}
 
-		err = p.manager.ReloadFromOriginalFile()
-		if err != nil {
-			p.logger.Printf("failed to reload data file: %v", err)
-			// retry after 1 second, since we have unhandled error
-			// this can happen from reload error or something else
-			nextIterationInMs = retryMs
-			continue
-		}
-		p.logger.Printf("data file reloaded successfully")
+			// write to dataFile
+			err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), os.ModeAppend)
+			if err != nil {
+				p.logger.Printf("failed to write data file: %v", err)
+				// retry after 1 second, since we have unhandled error
+				// this can happen from disk write error or something else
+				retryAttempts += 1
+				nextIterationInMs = retryMs
+				continue
+			}
+			p.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-		if !p.fileSynced {
-			p.fileSynced = true
-			p.rdySignal <- struct{}{}
-		}
+			if !p.isManagerInitialized {
+				err = p.initializeManager()
+				if err != nil {
+					p.logger.Printf("failed to initialize manager: %v", err)
+					// retry after 1 second, since we have unhandled error
+					// this can happen from manager initialization error or something else
+					retryAttempts += 1
+					nextIterationInMs = retryMs
+					continue
+				}
+			}
 
-		// reset nextIterationInMs
-		nextIterationInMs = p.dataFilePullEveryMs
-		p.totalFilePulls += 1
+			err = p.manager.ReloadFromOriginalFile()
+			if err != nil {
+				p.logger.Printf("failed to reload data file: %v", err)
+				// retry after 1 second, since we have unhandled error
+				// this can happen from reload error or something else
+				retryAttempts += 1
+				nextIterationInMs = retryMs
+				continue
+			}
+			p.logger.Printf("data file reloaded successfully")
+
+			if !p.fileSynced {
+				p.fileSynced = true
+				p.rdySignal <- nil
+			}
+
+			// reset nextIterationInMs
+			nextIterationInMs = p.dataFilePullEveryMs
+			p.totalFilePulls += 1
+			retryAttempts = 0
+		}
 	}
 }
 
