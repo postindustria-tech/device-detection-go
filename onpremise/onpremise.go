@@ -6,6 +6,7 @@ import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"net/url"
 	"os"
+	"path"
 )
 
 type Engine struct {
@@ -65,7 +66,16 @@ func (p *Engine) initializeManager() error {
 }
 
 func (p *Engine) createDatafileIfNotExists() error {
-	_, err := os.Stat(p.dataFile)
+	dir, file := path.Split(p.dataFile)
+
+	filePath, err := dd.GetFilePath(dir, []string{file})
+	if err != nil {
+		return fmt.Errorf("failed to get file path: %w", err)
+	}
+
+	p.dataFile = filePath
+
+	_, err = os.Stat(p.dataFile)
 	if err != nil {
 		if len(p.dataFile) == 0 {
 			p.dataFile = "data.hash"
