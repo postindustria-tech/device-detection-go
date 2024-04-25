@@ -2,6 +2,7 @@ package onpremise
 
 import (
 	"bytes"
+	"errors"
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"log"
 
@@ -33,7 +34,7 @@ func newMockDataFileServer() *httptest.Server {
 					return
 				}
 
-				w.Header().Add("Content-MD5", "4192ecba8d3e1a2f1c2f0644cd4322c6")
+				w.Header().Add("Content-MD5", "daebfa89ddefac8e6c4325c38f129504")
 				w.Header().Add("Content-Length", strconv.Itoa(buffer.Len()))
 
 				w.WriteHeader(http.StatusOK)
@@ -60,8 +61,9 @@ func TestFilePulling(t *testing.T) {
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
-			2000,
+			2,
 		),
+		SetMaxRetries(2),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
@@ -136,4 +138,18 @@ func TestFilePulling(t *testing.T) {
 	if deviceType != "Desktop" {
 		t.Fatalf("Expected DeviceType to be Desktop, got %s", deviceType)
 	}
+}
+
+func TestTooManyRetries(t *testing.T) {
+	config := dd.NewConfigHash(dd.Balanced)
+	_, err := New(
+		config,
+		SetLicenceKey("123"),
+		SetProduct("MyProduct"),
+		SetMaxRetries(5),
+	)
+	if !errors.Is(err, ErrTooManyRetries) {
+		t.Fatalf("Expected error to be ErrTooManyRetries, got %v", err)
+	}
+
 }
