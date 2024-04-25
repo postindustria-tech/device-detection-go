@@ -142,7 +142,7 @@ func SetMaxRetries(retries int) EngineOptions {
 
 }
 
-func DataDownloadEveryMs(everyMs int) EngineOptions {
+func SetPollingInterval(everyMs int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.dataFilePullEveryMs = everyMs
 		return nil

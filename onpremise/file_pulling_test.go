@@ -34,7 +34,7 @@ func newMockDataFileServer() *httptest.Server {
 					return
 				}
 
-				w.Header().Add("Content-MD5", "4192ecba8d3e1a2f1c2f0644cd4322c6")
+				w.Header().Add("Content-MD5", "daebfa89ddefac8e6c4325c38f129504")
 				w.Header().Add("Content-Length", strconv.Itoa(buffer.Len()))
 
 				w.WriteHeader(http.StatusOK)
@@ -63,6 +63,7 @@ func TestFilePulling(t *testing.T) {
 			server.URL+"/datafile",
 			2000,
 		),
+		SetMaxRetries(2),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
