@@ -55,13 +55,7 @@ func (p *Engine) run() error {
 }
 
 func (p *Engine) initializeManager() error {
-	dataFile, err := dd.GetFilePath(".", []string{p.dataFile})
-	if err != nil {
-		return fmt.Errorf("failed to get file path: %w", err)
-	}
-	p.dataFile = dataFile
-
-	err = dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
+	err := dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
 	if err != nil {
 		return fmt.Errorf("failed to init manager from file: %w", err)
 	}
@@ -139,7 +133,6 @@ func SetMaxRetries(retries int) EngineOptions {
 		cfg.maxRetries = retries
 		return nil
 	}
-
 }
 
 func SetPollingInterval(seconds int) EngineOptions {
