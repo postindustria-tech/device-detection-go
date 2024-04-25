@@ -6,7 +6,7 @@ import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"net/url"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 type Engine struct {
@@ -56,18 +56,8 @@ func (p *Engine) run() error {
 }
 
 func (p *Engine) initializeManager() error {
-	dir, file := path.Split(p.dataFile)
 
-	if dir == "" {
-		dir = "."
-	}
-
-	dataFile, err := dd.GetFilePath(dir, []string{file})
-	if err != nil {
-		return err
-	}
-	p.dataFile = dataFile
-	err = dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
+	err := dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
 	if err != nil {
 		return fmt.Errorf("failed to init manager from file: %w", err)
 	}
@@ -80,7 +70,7 @@ func (p *Engine) createDatafileIfNotExists() error {
 	_, err := os.Stat(p.dataFile)
 	if err != nil {
 		if len(p.dataFile) == 0 {
-			p.dataFile = "./data.hash"
+			p.dataFile = filepath.FromSlash("data.hash")
 		}
 
 		_, err = os.Create(p.dataFile)
@@ -96,6 +86,7 @@ type EngineOptions func(cfg *Engine) error
 
 func WithDataFile(path string) EngineOptions {
 	return func(cfg *Engine) error {
+		path := filepath.Join(path)
 		_, err := os.Stat(path)
 		if err != nil {
 			return fmt.Errorf("failed to get file path: %w", err)
