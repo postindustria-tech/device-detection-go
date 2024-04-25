@@ -119,7 +119,7 @@ func SetProduct(product string) EngineOptions {
 }
 
 // WithDataUpdateUrl sets the URL to pull data from and the interval in milliseconds
-func WithDataUpdateUrl(urlStr string, everyMs int) EngineOptions {
+func WithDataUpdateUrl(urlStr string, seconds int) EngineOptions {
 	return func(cfg *Engine) error {
 		_, err := url.ParseRequestURI(urlStr)
 		if err != nil {
@@ -127,7 +127,7 @@ func WithDataUpdateUrl(urlStr string, everyMs int) EngineOptions {
 		}
 
 		cfg.dataFileUrl = urlStr
-		cfg.dataFilePullEveryMs = everyMs
+		cfg.dataFilePullEveryMs = seconds * 1000
 		cfg.isScheduledFilePullingEnabled = true
 
 		return nil
@@ -142,9 +142,9 @@ func SetMaxRetries(retries int) EngineOptions {
 
 }
 
-func SetPollingInterval(everyMs int) EngineOptions {
+func SetPollingInterval(seconds int) EngineOptions {
 	return func(cfg *Engine) error {
-		cfg.dataFilePullEveryMs = everyMs
+		cfg.dataFilePullEveryMs = seconds * 1000
 		return nil
 	}
 }

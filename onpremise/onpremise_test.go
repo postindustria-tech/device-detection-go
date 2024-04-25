@@ -18,7 +18,7 @@ func TestCustomProvider(t *testing.T) {
 			name: "with licence key and custom url",
 			engineOptions: []EngineOptions{
 				SetLicenceKey("123"),
-				WithDataUpdateUrl(mockServer.URL+"/datafile", 2000),
+				WithDataUpdateUrl(mockServer.URL+"/datafile", 2),
 			},
 			expectedError: "",
 		},
@@ -26,21 +26,21 @@ func TestCustomProvider(t *testing.T) {
 			name: "with product and custom url",
 			engineOptions: []EngineOptions{
 				SetProduct("MyProduct"),
-				WithDataUpdateUrl(mockServer.URL+"/datafile", 2000),
+				WithDataUpdateUrl(mockServer.URL+"/datafile", 2),
 			},
 			expectedError: "",
 		},
 		{
 			name: "Invalid url",
 			engineOptions: []EngineOptions{
-				WithDataUpdateUrl("dsoahdsakjhd", 2000),
+				WithDataUpdateUrl("dsoahdsakjhd", 2),
 			},
 			expectedError: `parse "dsoahdsakjhd": invalid URI for request`,
 		},
 		{
 			name: "with custom url",
 			engineOptions: []EngineOptions{
-				WithDataUpdateUrl(mockServer.URL+"/datafile", 2000),
+				WithDataUpdateUrl(mockServer.URL+"/datafile", 2),
 			},
 			expectedError: "",
 		},

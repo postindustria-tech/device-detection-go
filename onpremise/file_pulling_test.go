@@ -61,7 +61,7 @@ func TestFilePulling(t *testing.T) {
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
-			2000,
+			2,
 		),
 		SetMaxRetries(2),
 	)
