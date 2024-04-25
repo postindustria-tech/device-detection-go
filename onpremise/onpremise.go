@@ -142,6 +142,13 @@ func SetMaxRetries(retries int) EngineOptions {
 
 }
 
+func DataDownloadEveryMs(everyMs int) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.dataFilePullEveryMs = everyMs
+		return nil
+	}
+}
+
 // ToggleLogger enables or disables the logger
 func ToggleLogger(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
@@ -171,12 +178,13 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 			logger:  DefaultLogger,
 			enabled: true,
 		},
-		manager:     manager,
-		config:      config,
-		rdySignal:   make(chan error, 1),
-		stopCh:      make(chan struct{}, 1),
-		fileSynced:  false,
-		dataFileUrl: defaultDataFileUrl,
+		manager:             manager,
+		config:              config,
+		rdySignal:           make(chan error, 1),
+		stopCh:              make(chan struct{}, 1),
+		fileSynced:          false,
+		dataFileUrl:         defaultDataFileUrl,
+		dataFilePullEveryMs: 30000,
 	}
 
 	for _, opt := range opts {

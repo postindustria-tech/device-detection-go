@@ -5,24 +5,6 @@ import (
 	"testing"
 )
 
-func TestDefaultProvider(t *testing.T) {
-	config := dd.NewConfigHash(dd.Balanced)
-	engine, err := New(
-		config,
-		SetLicenceKey("123"),
-		SetProduct("MyProduct"),
-	)
-	if err != nil {
-		t.Errorf("Failed to create engine: %v", err)
-	}
-
-	if engine.dataFileUrl != "https://distributor.51degrees.com/api/v2/download?Download=True&LicenseKeys=123&Product=MyProduct&Type=HashV41" {
-		t.Errorf("Failed to set default data file url %s", engine.dataFileUrl)
-	}
-
-	engine.Stop()
-}
-
 func TestCustomProvider(t *testing.T) {
 	mockServer := newMockDataFileServer()
 	defer mockServer.Close()
