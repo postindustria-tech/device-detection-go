@@ -151,5 +151,39 @@ func TestTooManyRetries(t *testing.T) {
 	if !errors.Is(err, ErrTooManyRetries) {
 		t.Fatalf("Expected error to be ErrTooManyRetries, got %v", err)
 	}
+}
 
+func newMockServerModifiedSince() *httptest.Server {
+	return httptest.NewServer(
+		http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+
+				val := r.Header.Get("If-Modified-Since")
+				if val == "" {
+					w.WriteHeader(http.StatusBadRequest)
+					return
+				}
+
+				w.WriteHeader(http.StatusNotModified)
+			},
+		),
+	)
+}
+
+func TestIfModifiedSince(t *testing.T) {
+	server := newMockServerModifiedSince()
+
+	defer server.Close()
+
+	timeStamp := time.Now()
+	_, err := doDataFileRequest(
+		server.URL, logWrapper{
+			enabled: true,
+			logger:  DefaultLogger,
+		}, &timeStamp,
+	)
+
+	if !errors.Is(err, ErrFileNotModified) {
+		t.Errorf("Expected error to be ErrFileNotModified, got %v", err)
+	}
 }
