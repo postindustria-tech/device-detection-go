@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Engine struct {
@@ -28,6 +29,7 @@ type Engine struct {
 	isManagerInitialized          bool
 	product                       string
 	maxRetries                    int
+	lastModificationTimestamp     *time.Time
 }
 
 const (
@@ -179,13 +181,14 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 			logger:  DefaultLogger,
 			enabled: true,
 		},
-		manager:             manager,
-		config:              config,
-		rdySignal:           make(chan error, 1),
-		stopCh:              make(chan struct{}, 1),
-		fileSynced:          false,
-		dataFileUrl:         defaultDataFileUrl,
-		dataFilePullEveryMs: 30000,
+		manager:     manager,
+		config:      config,
+		rdySignal:   make(chan error, 1),
+		stopCh:      make(chan struct{}, 1),
+		fileSynced:  false,
+		dataFileUrl: defaultDataFileUrl,
+		//default 15 minutes
+		dataFilePullEveryMs: 15 * 60 * 1000,
 	}
 
 	for _, opt := range opts {

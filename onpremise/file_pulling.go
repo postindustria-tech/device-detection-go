@@ -56,10 +56,15 @@ func (p *Engine) scheduleFilePulling() {
 
 			p.logger.Printf("Pulling data from %s", p.dataFileUrl)
 
-			fileResponse, err := doDataFileRequest(p.dataFileUrl, p.logger)
+			fileResponse, err := doDataFileRequest(p.dataFileUrl, p.logger, p.lastModificationTimestamp)
 			if err != nil {
+
 				p.logger.Printf("failed to pull data file: %v", err)
-				if fileResponse != nil && fileResponse.retryAfter > 0 {
+				if errors.Is(err, ErrFileNotModified) {
+					p.logger.Printf("skipping pull, file not modified")
+					nextIterationInMs = p.dataFilePullEveryMs
+
+				} else if fileResponse != nil && fileResponse.retryAfter > 0 {
 					if p.isManagerInitialized && p.fileSynced {
 						p.rdySignal <- nil
 					}
@@ -137,6 +142,9 @@ func (p *Engine) scheduleFilePulling() {
 				p.rdySignal <- nil
 			}
 
+			timestamp := time.Now().UTC()
+			p.lastModificationTimestamp = &timestamp
+
 			// reset nextIterationInMs
 			nextIterationInMs = p.dataFilePullEveryMs
 			p.totalFilePulls += 1
@@ -150,11 +158,17 @@ type FileResponse struct {
 	retryAfter int
 }
 
+var ErrFileNotModified = errors.New("data file not modified")
+
 // doDataFileRequest performs the data file request
-func doDataFileRequest(url string, logger logWrapper) (*FileResponse, error) {
+func doDataFileRequest(url string, logger logWrapper, timestamp *time.Time) (*FileResponse, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if timestamp != nil {
+		req.Header.Set("If-Modified-Since", timestamp.Format(http.TimeFormat))
 	}
 
 	resp, err := http.DefaultClient.Do(req)
@@ -162,6 +176,10 @@ func doDataFileRequest(url string, logger logWrapper) (*FileResponse, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotModified {
+		return nil, ErrFileNotModified
+	}
 
 	//handle retry after
 	if resp.StatusCode == http.StatusTooManyRequests {
@@ -223,8 +241,6 @@ func validateMd5(val []byte, hash string) (bool, error) {
 	}
 
 	strVal := hex.EncodeToString(h.Sum(nil))
-
-	fmt.Println(strVal)
 
 	return strVal == hash, nil
 }
