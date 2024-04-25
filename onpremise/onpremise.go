@@ -66,16 +66,7 @@ func (p *Engine) initializeManager() error {
 }
 
 func (p *Engine) createDatafileIfNotExists() error {
-	dir, file := path.Split(p.dataFile)
-
-	filePath, err := dd.GetFilePath(dir, []string{file})
-	if err != nil {
-		return fmt.Errorf("failed to get file path: %w", err)
-	}
-
-	p.dataFile = filePath
-
-	_, err = os.Stat(p.dataFile)
+	_, err := os.Stat(p.dataFile)
 	if err != nil {
 		if len(p.dataFile) == 0 {
 			p.dataFile = "data.hash"
@@ -87,6 +78,15 @@ func (p *Engine) createDatafileIfNotExists() error {
 		}
 	}
 
+	dir, file := path.Split(p.dataFile)
+
+	filePath, err := dd.GetFilePath(dir, []string{file})
+	if err != nil {
+		return fmt.Errorf("failed to get file path: %w", err)
+	}
+
+	p.dataFile = filePath
+
 	return nil
 }
 
@@ -94,6 +94,11 @@ type EngineOptions func(cfg *Engine) error
 
 func WithDataFile(path string) EngineOptions {
 	return func(cfg *Engine) error {
+		_, err := os.Stat(path)
+		if err != nil {
+			return fmt.Errorf("failed to get file path: %w", err)
+		}
+
 		cfg.dataFile = path
 		return nil
 	}

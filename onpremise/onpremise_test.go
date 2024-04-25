@@ -49,7 +49,7 @@ func TestCustomProvider(t *testing.T) {
 			engineOptions: []EngineOptions{
 				WithDataFile("non existing file"),
 			},
-			expectedError: "failed to get file path: file does not exist",
+			expectedError: "failed to get file path: stat non existing file: no such file or directory",
 		},
 	}
 
