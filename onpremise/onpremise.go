@@ -6,6 +6,7 @@ import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"net/url"
 	"os"
+	"path"
 )
 
 type Engine struct {
@@ -55,7 +56,18 @@ func (p *Engine) run() error {
 }
 
 func (p *Engine) initializeManager() error {
-	err := dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
+	dir, file := path.Split(p.dataFile)
+
+	if dir == "" {
+		dir = "."
+	}
+
+	dataFile, err := dd.GetFilePath(dir, []string{file})
+	if err != nil {
+		return err
+	}
+	p.dataFile = dataFile
+	err = dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
 	if err != nil {
 		return fmt.Errorf("failed to init manager from file: %w", err)
 	}
