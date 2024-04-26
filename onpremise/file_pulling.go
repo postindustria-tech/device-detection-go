@@ -70,7 +70,7 @@ func (p *Engine) scheduleFilePulling() {
 					nextIterationInMs = retryMs
 					continue
 				}
-				modTime := file.ModTime()
+				modTime := file.ModTime().UTC()
 				lastModificationTimestamp = &modTime
 			}
 
