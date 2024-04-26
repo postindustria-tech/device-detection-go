@@ -39,6 +39,10 @@ const (
 // run starts the engine
 func (p *Engine) run() error {
 	if len(p.dataFile) > 0 {
+		file, _ := os.Lstat(p.dataFile)
+		p.logger.Printf("run file size %d ", file.Size())
+		p.logger.Printf("run file name: ", file.Name())
+
 		err := p.initializeManager()
 		if err != nil {
 			return err
