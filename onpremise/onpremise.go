@@ -59,6 +59,32 @@ func (p *Engine) run() error {
 
 func (p *Engine) initializeManager() error {
 
+	p.logger.Printf("initialize manager from file %w ", p.dataFile)
+	file, _ := os.Lstat(p.dataFile)
+	p.logger.Printf("file size %d ", file.Size())
+	p.logger.Printf(file.Name())
+
+	info, e := os.Stat(p.dataFile)
+	if e != nil {
+		panic(e)
+	}
+
+	mode := info.Mode()
+
+	fmt.Print("Owner: ")
+	for i := 1; i < 4; i++ {
+		p.logger.Printf(string(mode.String()[i]))
+	}
+
+	fmt.Print("\nGroup: ")
+	for i := 4; i < 7; i++ {
+		p.logger.Printf(string(mode.String()[i]))
+	}
+
+	fmt.Print("\nOther: ")
+	for i := 7; i < 10; i++ {
+		p.logger.Printf(string(mode.String()[i]))
+	}
 	err := dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
 	if err != nil {
 		return fmt.Errorf("failed to init manager from file: %w", err)
