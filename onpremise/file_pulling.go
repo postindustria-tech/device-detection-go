@@ -56,7 +56,25 @@ func (p *Engine) scheduleFilePulling() {
 
 			p.logger.Printf("Pulling data from %s", p.dataFileUrl)
 
-			fileResponse, err := doDataFileRequest(p.dataFileUrl, p.logger, p.lastModificationTimestamp)
+			var (
+				lastModificationTimestamp *time.Time
+			)
+
+			if len(p.dataFile) > 0 {
+				file, err := os.Stat(p.dataFile)
+				if err != nil {
+					p.logger.Printf("failed to get file info: %v", err)
+					// retry after 1 second, since we have unhandled error
+					// this can happen from file info error or something else
+					retryAttempts += 1
+					nextIterationInMs = retryMs
+					continue
+				}
+				modTime := file.ModTime()
+				lastModificationTimestamp = &modTime
+			}
+
+			fileResponse, err := doDataFileRequest(p.dataFileUrl, p.logger, lastModificationTimestamp)
 			if err != nil {
 
 				p.logger.Printf("failed to pull data file: %v", err)
@@ -103,7 +121,8 @@ func (p *Engine) scheduleFilePulling() {
 			}
 
 			// write to dataFile
-			err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), os.ModeAppend)
+
+			err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
 				p.logger.Printf("failed to write data file: %v", err)
 				// retry after 1 second, since we have unhandled error
@@ -141,9 +160,6 @@ func (p *Engine) scheduleFilePulling() {
 				p.fileSynced = true
 				p.rdySignal <- nil
 			}
-
-			timestamp := time.Now().UTC()
-			p.lastModificationTimestamp = &timestamp
 
 			// reset nextIterationInMs
 			nextIterationInMs = p.dataFilePullEveryMs
