@@ -2,15 +2,10 @@ package onpremise
 
 import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
-	"runtime"
 	"testing"
 )
 
 func TestCustomProvider(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-
 	mockServer := newMockDataFileServer()
 	defer mockServer.Close()
 
