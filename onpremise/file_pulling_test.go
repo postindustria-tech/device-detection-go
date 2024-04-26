@@ -53,7 +53,7 @@ func newMockDataFileServer() *httptest.Server {
 
 func TestFilePulling(t *testing.T) {
 	server := newMockDataFileServer()
-	defer server.Close()
+	//defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
 
@@ -138,6 +138,8 @@ func TestFilePulling(t *testing.T) {
 	if deviceType != "Desktop" {
 		t.Fatalf("Expected DeviceType to be Desktop, got %s", deviceType)
 	}
+
+	server.Close()
 }
 
 func TestTooManyRetries(t *testing.T) {
@@ -186,4 +188,6 @@ func TestIfModifiedSince(t *testing.T) {
 	if !errors.Is(err, ErrFileNotModified) {
 		t.Errorf("Expected error to be ErrFileNotModified, got %v", err)
 	}
+
+	server.Close()
 }

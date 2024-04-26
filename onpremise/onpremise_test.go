@@ -7,7 +7,7 @@ import (
 
 func TestCustomProvider(t *testing.T) {
 	mockServer := newMockDataFileServer()
-	defer mockServer.Close()
+	//defer mockServer.Close()
 
 	cases := []struct {
 		name          string
@@ -68,4 +68,6 @@ func TestCustomProvider(t *testing.T) {
 		}
 
 	}
+
+	mockServer.Close()
 }
