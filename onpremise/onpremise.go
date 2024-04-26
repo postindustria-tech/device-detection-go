@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 type Engine struct {
@@ -29,7 +28,6 @@ type Engine struct {
 	isManagerInitialized          bool
 	product                       string
 	maxRetries                    int
-	lastModificationTimestamp     *time.Time
 }
 
 const (
