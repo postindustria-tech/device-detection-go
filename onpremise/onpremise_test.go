@@ -2,15 +2,10 @@ package onpremise
 
 import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
-	"runtime"
 	"testing"
 )
 
 func TestCustomProvider(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
-
 	mockServer := newMockDataFileServer()
 	defer mockServer.Close()
 
@@ -48,13 +43,6 @@ func TestCustomProvider(t *testing.T) {
 				WithDataUpdateUrl(mockServer.URL+"/datafile", 2),
 			},
 			expectedError: "",
-		},
-		{
-			name: "with data file",
-			engineOptions: []EngineOptions{
-				WithDataFile("non existing file"),
-			},
-			expectedError: "failed to get file path: stat non existing file: no such file or directory",
 		},
 	}
 

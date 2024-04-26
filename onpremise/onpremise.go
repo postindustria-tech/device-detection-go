@@ -72,7 +72,10 @@ func (p *Engine) createDatafileIfNotExists() error {
 	_, err := os.Stat(p.dataFile)
 	if err != nil {
 		if len(p.dataFile) == 0 {
-			p.dataFile = filepath.FromSlash("data.hash")
+			p.dataFile, err = filepath.Abs("data.hash")
+			if err != nil {
+				p.dataFile = filepath.FromSlash("data.hash")
+			}
 		}
 
 		_, err = os.Create(p.dataFile)
