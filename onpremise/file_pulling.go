@@ -20,29 +20,29 @@ var (
 )
 
 // scheduleFilePulling schedules the file pulling
-func (p *Engine) scheduleFilePulling() {
+func (e *Engine) scheduleFilePulling() {
 	// recover from panic
 	// if panic occurs, we will log the error and restart the file pulling
 	defer func() {
 		if r := recover(); r != nil {
-			p.logger.Printf("error occurred when pulling data: %v", r)
-			go p.scheduleFilePulling()
+			e.logger.Printf("error occurred when pulling data: %v", r)
+			go e.scheduleFilePulling()
 		}
 	}()
 
-	nextIterationInMs := p.dataFilePullEveryMs
+	nextIterationInMs := e.dataFilePullEveryMs
 
 	isFirstRun := true
 	retryAttempts := 0
 
 	for {
 		select {
-		case <-p.stopCh:
+		case <-e.stopCh:
 			return
 		default:
-			if p.maxRetries > 0 {
-				if retryAttempts > p.maxRetries && !p.isManagerInitialized {
-					p.rdySignal <- ErrTooManyRetries
+			if e.maxRetries > 0 {
+				if retryAttempts > e.maxRetries && !e.isManagerInitialized {
+					e.rdySignal <- ErrTooManyRetries
 					return
 				}
 			}
@@ -54,25 +54,25 @@ func (p *Engine) scheduleFilePulling() {
 				<-time.After(time.Duration(nextIterationInMs) * time.Millisecond)
 			}
 
-			p.logger.Printf("Pulling data from %s", p.dataFileUrl)
+			e.logger.Printf("Pulling data from %s", e.dataFileUrl)
 
-			fileResponse, err := doDataFileRequest(p.dataFileUrl, p.logger, p.lastModificationTimestamp)
+			fileResponse, err := doDataFileRequest(e.dataFileUrl, e.logger, e.lastModificationTimestamp)
 			if err != nil {
 
-				p.logger.Printf("failed to pull data file: %v", err)
+				e.logger.Printf("failed to pull data file: %v", err)
 				if errors.Is(err, ErrFileNotModified) {
-					p.logger.Printf("skipping pull, file not modified")
-					nextIterationInMs = p.dataFilePullEveryMs
+					e.logger.Printf("skipping pull, file not modified")
+					nextIterationInMs = e.dataFilePullEveryMs
 
 				} else if fileResponse != nil && fileResponse.retryAfter > 0 {
-					if p.isManagerInitialized && p.fileSynced {
-						p.rdySignal <- nil
+					if e.isManagerInitialized && e.fileSynced {
+						e.rdySignal <- nil
 					}
-					p.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
+					e.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
 					// retry after the specified time
 					nextIterationInMs = fileResponse.retryAfter * 1000
 				} else {
-					p.logger.Printf("retrying after 1 second")
+					e.logger.Printf("retrying after 1 second")
 					retryAttempts += 1
 					// retry after 1 second, since we have unhandled error
 					// this can happen from network stutter or something else
@@ -81,10 +81,10 @@ func (p *Engine) scheduleFilePulling() {
 				continue
 			}
 
-			p.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
+			e.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
 
 			if err != nil {
-				p.logger.Printf("failed to create data file: %v", err)
+				e.logger.Printf("failed to create data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from disk write error or something else
 				retryAttempts += 1
@@ -92,9 +92,9 @@ func (p *Engine) scheduleFilePulling() {
 				continue
 			}
 
-			err = p.createDatafileIfNotExists()
+			err = e.createDatafileIfNotExists()
 			if err != nil {
-				p.logger.Printf("failed to create data file: %v", err)
+				e.logger.Printf("failed to create data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from disk write error or something else
 				retryAttempts += 1
@@ -103,21 +103,21 @@ func (p *Engine) scheduleFilePulling() {
 			}
 
 			// write to dataFile
-			err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), os.ModeAppend)
+			err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), os.ModeAppend)
 			if err != nil {
-				p.logger.Printf("failed to write data file: %v", err)
+				e.logger.Printf("failed to write data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from disk write error or something else
 				retryAttempts += 1
 				nextIterationInMs = retryMs
 				continue
 			}
-			p.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
+			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			if !p.isManagerInitialized {
-				err = p.initializeManager()
+			if !e.isManagerInitialized {
+				err = e.initializeManager()
 				if err != nil {
-					p.logger.Printf("failed to initialize manager: %v", err)
+					e.logger.Printf("failed to initialize manager: %v", err)
 					// retry after 1 second, since we have unhandled error
 					// this can happen from manager initialization error or something else
 					retryAttempts += 1
@@ -126,28 +126,28 @@ func (p *Engine) scheduleFilePulling() {
 				}
 			}
 
-			err = p.manager.ReloadFromOriginalFile()
+			err = e.manager.ReloadFromOriginalFile()
 			if err != nil {
-				p.logger.Printf("failed to reload data file: %v", err)
+				e.logger.Printf("failed to reload data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from reload error or something else
 				retryAttempts += 1
 				nextIterationInMs = retryMs
 				continue
 			}
-			p.logger.Printf("data file reloaded successfully")
+			e.logger.Printf("data file reloaded successfully")
 
-			if !p.fileSynced {
-				p.fileSynced = true
-				p.rdySignal <- nil
+			if !e.fileSynced {
+				e.fileSynced = true
+				e.rdySignal <- nil
 			}
 
 			timestamp := time.Now().UTC()
-			p.lastModificationTimestamp = &timestamp
+			e.lastModificationTimestamp = &timestamp
 
 			// reset nextIterationInMs
-			nextIterationInMs = p.dataFilePullEveryMs
-			p.totalFilePulls += 1
+			nextIterationInMs = e.dataFilePullEveryMs
+			e.totalFilePulls += 1
 			retryAttempts = 0
 		}
 	}

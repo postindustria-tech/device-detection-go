@@ -12,6 +12,7 @@ import (
 
 type Engine struct {
 	logger                        logWrapper
+	fileWatcher                   fileWatcher
 	dataFile                      string
 	licenceKey                    string
 	createTempDataCopy            bool
@@ -30,6 +31,7 @@ type Engine struct {
 	product                       string
 	maxRetries                    int
 	lastModificationTimestamp     *time.Time
+	isFileWatcherEnabled          bool
 }
 
 const (
@@ -37,48 +39,48 @@ const (
 )
 
 // run starts the engine
-func (p *Engine) run() error {
-	if len(p.dataFile) > 0 {
-		err := p.initializeManager()
+func (e *Engine) run() error {
+	if len(e.dataFile) > 0 {
+		err := e.initializeManager()
 		if err != nil {
 			return err
 		}
 	}
 
-	err := p.validateAndAppendUrlParams()
+	err := e.validateAndAppendUrlParams()
 	if err != nil {
 		return err
 	}
 
-	if p.isScheduledFilePullingEnabled {
-		go p.scheduleFilePulling()
+	if e.isScheduledFilePullingEnabled {
+		go e.scheduleFilePulling()
 	}
 
 	return nil
 }
 
-func (p *Engine) initializeManager() error {
+func (e *Engine) initializeManager() error {
 
-	err := dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
+	err := dd.InitManagerFromFile(e.manager, *e.config, "", e.dataFile)
 	if err != nil {
 		return fmt.Errorf("failed to init manager from file: %w", err)
 	}
-	p.isManagerInitialized = true
+	e.isManagerInitialized = true
 
 	return nil
 }
 
-func (p *Engine) createDatafileIfNotExists() error {
-	_, err := os.Stat(p.dataFile)
+func (e *Engine) createDatafileIfNotExists() error {
+	_, err := os.Stat(e.dataFile)
 	if err != nil {
-		if len(p.dataFile) == 0 {
-			p.dataFile, err = filepath.Abs("data.hash")
+		if len(e.dataFile) == 0 {
+			e.dataFile, err = filepath.Abs("data.hash")
 			if err != nil {
-				p.dataFile = filepath.FromSlash("data.hash")
+				e.dataFile = filepath.FromSlash("data.hash")
 			}
 		}
 
-		_, err = os.Create(p.dataFile)
+		_, err = os.Create(e.dataFile)
 		if err != nil {
 			return fmt.Errorf("failed to create data file: %w", err)
 		}
@@ -173,7 +175,17 @@ func WithCustomLogger(logger LogWriter) EngineOptions {
 
 		return nil
 	}
+}
 
+// ToggleFileWatch enables or disables file watching
+// in case 3rd party updates the data file on file system
+// engine will automatically reload the data file
+// default is true
+func ToggleFileWatch(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isFileWatcherEnabled = enabled
+		return nil
+	}
 }
 
 func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
@@ -191,7 +203,8 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		fileSynced:  false,
 		dataFileUrl: defaultDataFileUrl,
 		//default 15 minutes
-		dataFilePullEveryMs: 15 * 60 * 1000,
+		dataFilePullEveryMs:  15 * 60 * 1000,
+		isFileWatcherEnabled: true,
 	}
 
 	for _, opt := range opts {
@@ -218,6 +231,14 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		}
 	}
 
+	if pl.isFileWatcherEnabled {
+		pl.fileWatcher, err = newFileWatcher(pl.logger)
+		if err != nil {
+			return nil, err
+		}
+		pl.fileWatcher.watch(pl.dataFile, pl.handleFileExternallyChanged)
+	}
+
 	return pl, nil
 }
 
@@ -227,14 +248,14 @@ type Evidence struct {
 	Value  string
 }
 
-func (p *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
+func (e *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
 	evidenceHash, err := mapEvidence(evidences)
 	if err != nil {
 		return nil, err
 	}
 	defer evidenceHash.Free()
 
-	results := dd.NewResultsHash(p.manager, uint32(evidenceHash.Count()), 0)
+	results := dd.NewResultsHash(e.manager, uint32(evidenceHash.Count()), 0)
 	err = results.MatchEvidence(evidenceHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to match evidence: %w", err)
@@ -256,46 +277,46 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 	return evidenceHash, nil
 }
 
-func (p *Engine) Stop() {
-	p.stopCh <- struct{}{}
-	if p.manager != nil {
-		p.manager.Free()
+func (e *Engine) Stop() {
+	e.stopCh <- struct{}{}
+	if e.manager != nil {
+		e.manager.Free()
 	}
-	close(p.stopCh)
+	close(e.stopCh)
 }
 
-func (p *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
-	return p.manager.HttpHeaderKeys
+func (e *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
+	return e.manager.HttpHeaderKeys
 }
 
-func (p *Engine) appendLicenceKey() error {
-	urlParsed, err := url.Parse(p.dataFileUrl)
+func (e *Engine) appendLicenceKey() error {
+	urlParsed, err := url.Parse(e.dataFileUrl)
 	if err != nil {
 		return err
 	}
 	query := urlParsed.Query()
-	query.Set("LicenseKeys", p.licenceKey)
+	query.Set("LicenseKeys", e.licenceKey)
 	urlParsed.RawQuery = query.Encode()
 
-	p.dataFileUrl = urlParsed.String()
+	e.dataFileUrl = urlParsed.String()
 
 	return nil
 }
 
-func (p *Engine) isDefaultDataFileUrl() bool {
-	return p.dataFileUrl == defaultDataFileUrl
+func (e *Engine) isDefaultDataFileUrl() bool {
+	return e.dataFileUrl == defaultDataFileUrl
 }
 
-func (p *Engine) appendProduct() error {
-	urlParsed, err := url.Parse(p.dataFileUrl)
+func (e *Engine) appendProduct() error {
+	urlParsed, err := url.Parse(e.dataFileUrl)
 	if err != nil {
 		return fmt.Errorf("failed to parse data file url: %w", err)
 	}
 	query := urlParsed.Query()
-	query.Set("Product", p.product)
+	query.Set("Product", e.product)
 	urlParsed.RawQuery = query.Encode()
 
-	p.dataFileUrl = urlParsed.String()
+	e.dataFileUrl = urlParsed.String()
 
 	return nil
 }
@@ -304,15 +325,15 @@ var (
 	ErrLicenceKeyAndProductRequired = errors.New("licence key and product are required")
 )
 
-func (p *Engine) validateAndAppendUrlParams() error {
-	if p.isDefaultDataFileUrl() && !p.hasDefaultDistributorParams() && p.isScheduledFilePullingEnabled {
+func (e *Engine) validateAndAppendUrlParams() error {
+	if e.isDefaultDataFileUrl() && !e.hasDefaultDistributorParams() && e.isScheduledFilePullingEnabled {
 		return ErrLicenceKeyAndProductRequired
-	} else if p.isDefaultDataFileUrl() && p.isScheduledFilePullingEnabled {
-		err := p.appendLicenceKey()
+	} else if e.isDefaultDataFileUrl() && e.isScheduledFilePullingEnabled {
+		err := e.appendLicenceKey()
 		if err != nil {
 			return err
 		}
-		err = p.appendProduct()
+		err = e.appendProduct()
 		if err != nil {
 			return err
 		}
@@ -321,10 +342,17 @@ func (p *Engine) validateAndAppendUrlParams() error {
 	return nil
 }
 
-func (p *Engine) hasDefaultDistributorParams() bool {
-	return len(p.licenceKey) > 0 && len(p.product) > 0
+func (e *Engine) hasDefaultDistributorParams() bool {
+	return len(e.licenceKey) > 0 && len(e.product) > 0
 }
 
-func (p *Engine) hasSomeDistributorParams() bool {
-	return len(p.licenceKey) > 0 || len(p.product) > 0
+func (e *Engine) hasSomeDistributorParams() bool {
+	return len(e.licenceKey) > 0 || len(e.product) > 0
+}
+
+func (e *Engine) handleFileExternallyChanged() {
+	err := e.manager.ReloadFromOriginalFile()
+	if err != nil {
+		e.logger.Printf("failed to reload data file: %v", err)
+	}
 }
