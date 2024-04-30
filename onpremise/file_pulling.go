@@ -56,7 +56,25 @@ func (e *Engine) scheduleFilePulling() {
 
 			e.logger.Printf("Pulling data from %s", e.dataFileUrl)
 
-			fileResponse, err := doDataFileRequest(e.dataFileUrl, e.logger, e.lastModificationTimestamp)
+			var (
+				lastModificationTimestamp *time.Time
+			)
+
+			if len(e.dataFile) > 0 {
+				file, err := os.Stat(e.dataFile)
+				if err != nil {
+					e.logger.Printf("failed to get file info: %v", err)
+					// retry after 1 second, since we have unhandled error
+					// this can happen from file info error or something else
+					retryAttempts += 1
+					nextIterationInMs = retryMs
+					continue
+				}
+				modTime := file.ModTime().UTC()
+				lastModificationTimestamp = &modTime
+			}
+
+			fileResponse, err := doDataFileRequest(e.dataFileUrl, e.logger, lastModificationTimestamp)
 			if err != nil {
 
 				e.logger.Printf("failed to pull data file: %v", err)
@@ -103,7 +121,7 @@ func (e *Engine) scheduleFilePulling() {
 			}
 
 			// write to dataFile
-			err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), os.ModeAppend)
+			err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
 				e.logger.Printf("failed to write data file: %v", err)
 				// retry after 1 second, since we have unhandled error
