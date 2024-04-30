@@ -3,6 +3,7 @@ package onpremise
 import (
 	"compress/gzip"
 	"github.com/51Degrees/device-detection-go/v4/dd"
+	"io"
 	"log"
 
 	"os"
@@ -20,12 +21,7 @@ func unzipAndSaveToTempFile(name string) (*os.File, error) {
 		return nil, err
 	}
 
-	var uncompressed []byte
-	_, err = gReader.Read(uncompressed)
-	if err != nil {
-		return nil, err
-	}
-
+	uncompressed, err := io.ReadAll(gReader)
 	err = os.WriteFile(name, uncompressed, 0644)
 	if err != nil {
 		return nil, err
@@ -44,17 +40,18 @@ func TestExternalFileChanged(t *testing.T) {
 
 	tempFile, err := unzipAndSaveToTempFile("test_external_file_test.hash")
 	if err != nil {
-		t.Errorf("Error creating temp file: %v", err)
+		t.Fatalf("Error creating temp file: %v", err)
 	}
-	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
+	tempFile.Close()
+
 	engine, err := New(
 		config,
-		WithDataFile(tempFile.Name()),
+		WithDataFile("test_external_file_test.hash"),
 		ToggleFileWatch(true),
 	)
 	if err != nil {
-		t.Errorf("Error creating engine: %v", err)
+		t.Fatalf("Error creating engine: %v", err)
 	}
 
 	mockEvidence := []Evidence{
@@ -111,7 +108,7 @@ func TestExternalFileChanged(t *testing.T) {
 	}
 	tempFile2, err := unzipAndSaveToTempFile("test_external_file_test.hash")
 	if err != nil {
-		t.Errorf("Error creating temp file: %v", err)
+		t.Fatalf("Error creating temp file: %v", err)
 	}
 	defer tempFile2.Close()
 	defer os.Remove(tempFile2.Name())

@@ -236,7 +236,11 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		if err != nil {
 			return nil, err
 		}
-		pl.fileWatcher.watch(pl.dataFile, pl.handleFileExternallyChanged)
+		err = pl.fileWatcher.watch(pl.dataFile, pl.handleFileExternallyChanged)
+		if err != nil {
+			return nil, err
+		}
+		go pl.fileWatcher.run()
 	}
 
 	return pl, nil
