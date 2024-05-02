@@ -15,10 +15,6 @@ import (
 
 const retryMs = 1000
 
-var (
-	ErrTooManyRetries = errors.New("too many retries to pull data file")
-)
-
 // scheduleFilePulling schedules the file pulling
 func (e *Engine) scheduleFilePulling() {
 	// recover from panic
@@ -50,7 +46,13 @@ func (e *Engine) scheduleFilePulling() {
 			// if this is the first run, we don't need to wait
 			if isFirstRun {
 				isFirstRun = false
+				// if update on start is disabled, skip the pull and schedule the next pull
+				if !e.isUpdateOnStartEnabled {
+					e.logger.Printf("Skipping pull on start")
+					continue
+				}
 			} else {
+				// pause goroutine for nextIterationInMs
 				<-time.After(time.Duration(nextIterationInMs) * time.Millisecond)
 			}
 
@@ -175,8 +177,6 @@ type FileResponse struct {
 	buffer     *bytes.Buffer
 	retryAfter int
 }
-
-var ErrFileNotModified = errors.New("data file not modified")
 
 // doDataFileRequest performs the data file request
 func doDataFileRequest(url string, logger logWrapper, timestamp *time.Time) (*FileResponse, error) {

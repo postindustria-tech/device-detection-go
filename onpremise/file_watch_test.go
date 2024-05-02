@@ -38,16 +38,16 @@ func unzipAndSaveToTempFile(name string) (*os.File, error) {
 func TestExternalFileChanged(t *testing.T) {
 	config := dd.NewConfigHash(dd.Balanced)
 
-	tempFile, err := unzipAndSaveToTempFile("test_external_file_test.hash")
+	tempFile, err := unzipAndSaveToTempFile("TestExternalFileChanged.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
 	defer os.Remove(tempFile.Name())
-	tempFile.Close()
+	defer tempFile.Close()
 
 	engine, err := New(
 		config,
-		WithDataFile("test_external_file_test.hash"),
+		WithDataFile("TestExternalFileChanged.hash"),
 		ToggleFileWatch(true),
 	)
 	if err != nil {

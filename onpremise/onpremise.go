@@ -16,10 +16,10 @@ type Engine struct {
 	dataFile                      string
 	licenceKey                    string
 	createTempDataCopy            bool
-	dataUpdateOnStartEnabled      bool
 	dataFileUrl                   string
 	dataFilePullEveryMs           int
 	isScheduledFilePullingEnabled bool
+	isAutoUpdateEnabled           bool
 	loggerEnabled                 bool
 	manager                       *dd.ResourceManager
 	config                        *dd.ConfigHash
@@ -32,10 +32,18 @@ type Engine struct {
 	maxRetries                    int
 	lastModificationTimestamp     *time.Time
 	isFileWatcherEnabled          bool
+	isUpdateOnStartEnabled        bool
 }
 
 const (
 	defaultDataFileUrl = "https://distributor.51degrees.com/api/v2/download?Type=HashV41&Download=True&Product=V4TAC"
+)
+
+var (
+	ErrNoDataFileProvided           = errors.New("no data file provided")
+	ErrTooManyRetries               = errors.New("too many retries to pull data file")
+	ErrFileNotModified              = errors.New("data file not modified")
+	ErrLicenceKeyAndProductRequired = errors.New("licence key and product are required")
 )
 
 // run starts the engine
@@ -52,7 +60,7 @@ func (e *Engine) run() error {
 		return err
 	}
 
-	if e.isScheduledFilePullingEnabled {
+	if e.isScheduledFilePullingEnabled && e.isAutoUpdateEnabled {
 		go e.scheduleFilePulling()
 	}
 
@@ -188,6 +196,22 @@ func ToggleFileWatch(enabled bool) EngineOptions {
 	}
 }
 
+func ToggleUpdateOnStart(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isUpdateOnStartEnabled = enabled
+
+		return nil
+	}
+}
+
+func ToggleAutoUpdate(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isAutoUpdateEnabled = enabled
+
+		return nil
+	}
+}
+
 func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 	manager := dd.NewResourceManager()
 
@@ -203,8 +227,10 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		fileSynced:  false,
 		dataFileUrl: defaultDataFileUrl,
 		//default 15 minutes
-		dataFilePullEveryMs:  15 * 60 * 1000,
-		isFileWatcherEnabled: true,
+		dataFilePullEveryMs:    15 * 60 * 1000,
+		isFileWatcherEnabled:   true,
+		isUpdateOnStartEnabled: true,
+		isAutoUpdateEnabled:    true,
 	}
 
 	for _, opt := range opts {
@@ -215,13 +241,17 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		}
 	}
 
+	if pl.dataFile == "" {
+		return nil, ErrNoDataFileProvided
+	}
+
 	err := pl.run()
 	if err != nil {
 		pl.Stop()
 		return nil, err
 	}
 
-	if pl.isScheduledFilePullingEnabled && !pl.isManagerInitialized {
+	if pl.isScheduledFilePullingEnabled && !pl.isManagerInitialized && pl.isAutoUpdateEnabled {
 		//wait for first file pull
 		err := <-pl.rdySignal
 		defer close(pl.rdySignal)
@@ -231,11 +261,13 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		}
 	}
 
+	// if file watcher is enabled, start the watcher
 	if pl.isFileWatcherEnabled {
 		pl.fileWatcher, err = newFileWatcher(pl.logger)
 		if err != nil {
 			return nil, err
 		}
+		// this will watch the data file, if it changes, it will reload the data file in the manager
 		err = pl.fileWatcher.watch(pl.dataFile, pl.handleFileExternallyChanged)
 		if err != nil {
 			return nil, err
@@ -285,6 +317,8 @@ func (e *Engine) Stop() {
 	e.stopCh <- struct{}{}
 	if e.manager != nil {
 		e.manager.Free()
+	} else {
+		e.logger.Printf("manager is nil")
 	}
 	close(e.stopCh)
 }
@@ -324,10 +358,6 @@ func (e *Engine) appendProduct() error {
 
 	return nil
 }
-
-var (
-	ErrLicenceKeyAndProductRequired = errors.New("licence key and product are required")
-)
 
 func (e *Engine) validateAndAppendUrlParams() error {
 	if e.isDefaultDataFileUrl() && !e.hasDefaultDistributorParams() && e.isScheduledFilePullingEnabled {

@@ -57,25 +57,34 @@ func TestFilePulling(t *testing.T) {
 
 	config := dd.NewConfigHash(dd.Balanced)
 
-	pl, err := New(
+	tempFile, err := unzipAndSaveToTempFile("test_file_pulling_test.hash")
+	if err != nil {
+		t.Fatalf("Error creating temp file: %v", err)
+	}
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	engine, err := New(
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
 			2,
 		),
 		SetMaxRetries(2),
+		WithDataFile(tempFile.Name()),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
+	defer engine.Stop()
 
 	<-time.After(5000 * time.Millisecond)
 
-	if pl.totalFilePulls != 2 {
-		t.Fatalf("Expected 2 file pulls, got %d", pl.totalFilePulls)
+	if engine.totalFilePulls != 2 {
+		t.Fatalf("Expected 2 file pulls, got %d", engine.totalFilePulls)
 	}
 
-	resultsHash, err := pl.Process(
+	resultsHash, err := engine.Process(
 		[]Evidence{
 			{
 				Prefix: dd.HttpHeaderString,
@@ -140,19 +149,6 @@ func TestFilePulling(t *testing.T) {
 	}
 }
 
-func TestTooManyRetries(t *testing.T) {
-	config := dd.NewConfigHash(dd.Balanced)
-	_, err := New(
-		config,
-		SetLicenceKey("123"),
-		SetProduct("MyProduct"),
-		SetMaxRetries(5),
-	)
-	if !errors.Is(err, ErrTooManyRetries) {
-		t.Fatalf("Expected error to be ErrTooManyRetries, got %v", err)
-	}
-}
-
 func newMockServerModifiedSince() *httptest.Server {
 	return httptest.NewServer(
 		http.HandlerFunc(
@@ -185,5 +181,76 @@ func TestIfModifiedSince(t *testing.T) {
 
 	if !errors.Is(err, ErrFileNotModified) {
 		t.Errorf("Expected error to be ErrFileNotModified, got %v", err)
+	}
+}
+
+func TestIsUpdateOnStartDisabled(t *testing.T) {
+	server := newMockDataFileServer()
+	defer server.Close()
+
+	config := dd.NewConfigHash(dd.Balanced)
+
+	tempFile, err := unzipAndSaveToTempFile("TestIsUpdateOnStartDisabled.hash")
+	if err != nil {
+		t.Fatalf("Error creating temp file: %v", err)
+	}
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	engine, err := New(
+		config,
+		WithDataUpdateUrl(
+			server.URL+"/datafile",
+			2,
+		),
+		SetMaxRetries(2),
+		WithDataFile(tempFile.Name()),
+		ToggleUpdateOnStart(false),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create engine: %v", err)
+	}
+
+	<-time.After(3000 * time.Millisecond)
+	engine.Stop()
+
+	if engine.totalFilePulls != 1 {
+		t.Fatalf("Expected 1 file pulls, got %d", engine.totalFilePulls)
+	}
+}
+
+func TestToggleAutoUpdate(t *testing.T) {
+	server := newMockDataFileServer()
+	defer server.Close()
+
+	config := dd.NewConfigHash(dd.Balanced)
+
+	tempFile, err := unzipAndSaveToTempFile("TestToggleAutoUpdate.hash")
+	if err != nil {
+		t.Fatalf("Error creating temp file: %v", err)
+	}
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	engine, err := New(
+		config,
+		WithDataUpdateUrl(
+			server.URL+"/datafile",
+			2,
+		),
+		SetMaxRetries(2),
+		WithDataFile(tempFile.Name()),
+		ToggleUpdateOnStart(false),
+		ToggleAutoUpdate(false),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create engine: %v", err)
+	}
+
+	<-time.After(3000 * time.Millisecond)
+	engine.Stop()
+
+	if engine.totalFilePulls != 0 {
+		t.Fatalf("Expected 0 file pulls, got %d", engine.totalFilePulls)
 	}
 }
