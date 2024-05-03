@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strconv"
@@ -216,13 +217,31 @@ func doDataFileRequest(url string, logger logWrapper, timestamp *time.Time) (*Fi
 		return nil, fmt.Errorf("failed to pull data file: %s", resp.Status)
 	}
 
-	buffer := bytes.NewBuffer(make([]byte, 0))
-	_, err = buffer.ReadFrom(resp.Body)
-	responseBytes := buffer.Bytes()
+	var (
+		fileBytes     io.Reader
+		responseBytes []byte
+	)
 
-	fileBytes, err := gzip.NewReader(bytes.NewBuffer(responseBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decompress file: %v", err)
+	// check if the response is compressed
+	// if it is, decompress it
+	// if more cases are added, consider using a switch statement or make a factory
+	if resp.Header.Get("Content-Type") == "application/gzip" {
+		buffer := bytes.NewBuffer(make([]byte, 0))
+		_, err = buffer.ReadFrom(resp.Body)
+		responseBytes = buffer.Bytes()
+		fileBytes, err = gzip.NewReader(bytes.NewBuffer(responseBytes))
+		if err != nil {
+			return nil, fmt.Errorf("failed to decompress file: %v", err)
+		}
+		//	if the response is not compressed, read it directly
+	} else {
+		buffer := bytes.NewBuffer(make([]byte, 0))
+		_, err = buffer.ReadFrom(resp.Body)
+		responseBytes = buffer.Bytes()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %v", err)
+		}
+		fileBytes = bytes.NewBuffer(responseBytes)
 	}
 
 	uncompressedBuffer := bytes.NewBuffer(make([]byte, 0))

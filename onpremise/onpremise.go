@@ -227,7 +227,7 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		fileSynced:  false,
 		dataFileUrl: defaultDataFileUrl,
 		//default 15 minutes
-		dataFilePullEveryMs:    15 * 60 * 1000,
+		dataFilePullEveryMs:    30 * 60 * 1000,
 		isFileWatcherEnabled:   true,
 		isUpdateOnStartEnabled: true,
 		isAutoUpdateEnabled:    true,

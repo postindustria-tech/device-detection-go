@@ -2,6 +2,7 @@ package onpremise
 
 import (
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"log"
@@ -36,11 +37,46 @@ func newMockDataFileServer() *httptest.Server {
 
 				w.Header().Add("Content-MD5", "daebfa89ddefac8e6c4325c38f129504")
 				w.Header().Add("Content-Length", strconv.Itoa(buffer.Len()))
+				w.Header().Add("Content-Type", "application/gzip")
 
 				w.WriteHeader(http.StatusOK)
 
 				// Write the file to response
 				_, err = io.Copy(w, buffer)
+				if err != nil {
+					log.Printf("Failed to write file: %v", err)
+					return
+				}
+
+			},
+		),
+	)
+}
+
+func newMockUncompressedDataFileServer() *httptest.Server {
+	return httptest.NewServer(
+		http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				// Open the file for reading
+				file, err := os.Open("./mock_hash.gz")
+				if err != nil {
+					log.Printf("Failed to open file: %v", err)
+					return
+				}
+				defer file.Close()
+				w.Header().Add("Content-Type", "application/octet-stream")
+
+				// uncompressed the file
+				fileBytes, err := gzip.NewReader(file)
+				if err != nil {
+					log.Printf("Failed to decompress file: %v", err)
+					return
+				}
+
+				w.WriteHeader(http.StatusOK)
+
+				// Write the file to response
+				_, err = io.Copy(w, fileBytes)
 				if err != nil {
 					log.Printf("Failed to write file: %v", err)
 					return
@@ -136,8 +172,6 @@ func TestFilePulling(t *testing.T) {
 	if browser != "Chromium Project" {
 		t.Fatalf("Expected BrowserName to be Chromium Project, got %s", browser)
 	}
-
-	log.Printf("BrowserName: %s", browser)
 
 	deviceType, err := resultsHash.ValuesString("DeviceType", ",")
 	if err != nil {
@@ -252,5 +286,95 @@ func TestToggleAutoUpdate(t *testing.T) {
 
 	if engine.totalFilePulls != 0 {
 		t.Fatalf("Expected 0 file pulls, got %d", engine.totalFilePulls)
+	}
+}
+
+func TestUncompressedDataUrl(t *testing.T) {
+	server := newMockUncompressedDataFileServer()
+	defer server.Close()
+
+	config := dd.NewConfigHash(dd.Balanced)
+	tempFile, err := unzipAndSaveToTempFile("TestUncompressedDataUrl.hash")
+	if err != nil {
+		t.Fatalf("Error creating temp file: %v", err)
+	}
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+
+	engine, err := New(
+		config,
+		WithDataUpdateUrl(server.URL+"/datafile", 2),
+		WithDataFile(tempFile.Name()),
+	)
+	if err != nil {
+		t.Fatalf("Failed to create engine: %v", err)
+	}
+	defer engine.Stop()
+	<-time.After(3000 * time.Millisecond)
+
+	if engine.totalFilePulls != 1 {
+		t.Fatalf("Expected 1 file pulls, got %d", engine.totalFilePulls)
+	}
+
+	resultsHash, err := engine.Process(
+		[]Evidence{
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Arch",
+				Value:  "x86",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Model",
+				Value:  "Intel",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Mobile",
+				Value:  "?0",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Platform",
+				Value:  "Windows",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Platform-Version",
+				Value:  "10.0",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua-Full-Version-List",
+				Value:  "58.0.3029.110",
+			},
+			{
+				Prefix: dd.HttpHeaderString,
+				Key:    "Sec-Ch-Ua",
+				Value:  `"\"Chromium\";v=\"91.0.4472.124\";a=\"x86\";p=\"Windows\";rv=\"91.0\""`,
+			},
+		},
+	)
+	defer resultsHash.Free()
+	if err != nil {
+		t.Fatalf("Failed to process evidence: %v", err)
+	}
+
+	browser, err := resultsHash.ValuesString("BrowserName", ",")
+	if err != nil {
+		log.Fatalf("Failed to get BrowserName: %v", err)
+	}
+
+	if browser != "Chromium Project" {
+		t.Fatalf("Expected BrowserName to be Chromium Project, got %s", browser)
+	}
+
+	deviceType, err := resultsHash.ValuesString("DeviceType", ",")
+	if err != nil {
+		log.Fatalf("Failed to get DeviceType: %v", err)
+	}
+
+	if deviceType != "Desktop" {
+		t.Fatalf("Expected DeviceType to be Desktop, got %s", deviceType)
 	}
 }
