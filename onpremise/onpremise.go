@@ -4,18 +4,20 @@ import (
 	"errors"
 	"fmt"
 	"github.com/51Degrees/device-detection-go/v4/dd"
+	"github.com/google/uuid"
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
 type Engine struct {
+	sync.RWMutex
 	logger                        logWrapper
 	fileWatcher                   fileWatcher
 	dataFile                      string
 	licenceKey                    string
-	createTempDataCopy            bool
 	dataFileUrl                   string
 	dataFilePullEveryMs           int
 	isScheduledFilePullingEnabled bool
@@ -33,6 +35,11 @@ type Engine struct {
 	lastModificationTimestamp     *time.Time
 	isFileWatcherEnabled          bool
 	isUpdateOnStartEnabled        bool
+	isCreateTempDataCopyEnabled   bool
+	tempDataFile                  string
+	tempDataDir                   string
+	isCopyingFile                 bool
+	randomization                 int
 }
 
 const (
@@ -48,7 +55,7 @@ var (
 
 // run starts the engine
 func (e *Engine) run() error {
-	if len(e.dataFile) > 0 {
+	if len(e.getFilePath()) > 0 {
 		err := e.initializeManager()
 		if err != nil {
 			return err
@@ -68,8 +75,7 @@ func (e *Engine) run() error {
 }
 
 func (e *Engine) initializeManager() error {
-
-	err := dd.InitManagerFromFile(e.manager, *e.config, "", e.dataFile)
+	err := dd.InitManagerFromFile(e.manager, *e.config, "", e.getFilePath())
 	if err != nil {
 		return fmt.Errorf("failed to init manager from file: %w", err)
 	}
@@ -78,27 +84,9 @@ func (e *Engine) initializeManager() error {
 	return nil
 }
 
-func (e *Engine) createDatafileIfNotExists() error {
-	_, err := os.Stat(e.dataFile)
-	if err != nil {
-		if len(e.dataFile) == 0 {
-			e.dataFile, err = filepath.Abs("data.hash")
-			if err != nil {
-				e.dataFile = filepath.FromSlash("data.hash")
-			}
-		}
-
-		_, err = os.Create(e.dataFile)
-		if err != nil {
-			return fmt.Errorf("failed to create data file: %w", err)
-		}
-	}
-
-	return nil
-}
-
 type EngineOptions func(cfg *Engine) error
 
+// WithDataFile sets the path to the local data file, this parameter is required to start the engine
 func WithDataFile(path string) EngineOptions {
 	return func(cfg *Engine) error {
 		path := filepath.Join(path)
@@ -112,6 +100,8 @@ func WithDataFile(path string) EngineOptions {
 	}
 }
 
+// SetLicenceKey sets the licence key to use when pulling the data file
+// this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
 func SetLicenceKey(key string) EngineOptions {
 	return func(cfg *Engine) error {
 		if !cfg.isDefaultDataFileUrl() {
@@ -123,6 +113,8 @@ func SetLicenceKey(key string) EngineOptions {
 	}
 }
 
+// SetProduct sets the product to use when pulling the data file
+// this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
 func SetProduct(product string) EngineOptions {
 	return func(cfg *Engine) error {
 		if !cfg.isDefaultDataFileUrl() {
@@ -151,6 +143,7 @@ func WithDataUpdateUrl(urlStr string, seconds int) EngineOptions {
 	}
 }
 
+// SetMaxRetries sets the maximum number of retries to pull the data file
 func SetMaxRetries(retries int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.maxRetries = retries
@@ -158,6 +151,7 @@ func SetMaxRetries(retries int) EngineOptions {
 	}
 }
 
+// SetPollingInterval sets the interval in seconds to pull the data file
 func SetPollingInterval(seconds int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.dataFilePullEveryMs = seconds * 1000
@@ -196,6 +190,9 @@ func ToggleFileWatch(enabled bool) EngineOptions {
 	}
 }
 
+// ToggleUpdateOnStart enables or disables update on start
+// default is true
+// if enabled, engine will pull the data file from the distributor on start of the engine
 func ToggleUpdateOnStart(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isUpdateOnStartEnabled = enabled
@@ -204,10 +201,57 @@ func ToggleUpdateOnStart(enabled bool) EngineOptions {
 	}
 }
 
+// ToggleAutoUpdate enables or disables auto update
+// default is true
+// if enabled, engine will automatically pull the data file from the distributor
+// if disabled, engine will not pull the data file from the distributor
+// options like WithDataUpdateUrl, SetLicenceKey will be ignored since auto update is disabled
 func ToggleAutoUpdate(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isAutoUpdateEnabled = enabled
 
+		return nil
+	}
+}
+
+// ToggleCreateTempDataCopy enables or disables creating a temp copy of the data file
+// default is true
+// if enabled, engine will create a temp copy of the data file and use it to initialize the manager
+// if disabled, engine will use the original data file to initialize the manager
+// this is useful when 3rd party updates the data file on file system
+func ToggleCreateTempDataCopy(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isCreateTempDataCopyEnabled = enabled
+
+		return nil
+	}
+}
+
+// SetTempDataDir sets the directory to store the temp data file
+// default is current directory
+func SetTempDataDir(dir string) EngineOptions {
+	return func(cfg *Engine) error {
+		dirFileInfo, err := os.Stat(dir)
+		if err != nil {
+			return fmt.Errorf("failed to get file path: %w", err)
+		}
+
+		if !dirFileInfo.IsDir() {
+			return fmt.Errorf("path is not a directory: %s", dir)
+		}
+
+		cfg.tempDataDir = dir
+		return nil
+	}
+}
+
+// Randomization sets the randomization time in seconds
+// default is 0
+// if set, when scheduling the file pulling, it will add randomization time to the interval
+// this is useful to avoid all engines pulling the data file at the same time in case of multiple engines/instances
+func Randomization(seconds int) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.randomization = seconds * 1000
 		return nil
 	}
 }
@@ -227,10 +271,12 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		fileSynced:  false,
 		dataFileUrl: defaultDataFileUrl,
 		//default 15 minutes
-		dataFilePullEveryMs:    30 * 60 * 1000,
-		isFileWatcherEnabled:   true,
-		isUpdateOnStartEnabled: true,
-		isAutoUpdateEnabled:    true,
+		dataFilePullEveryMs:         30 * 60 * 1000,
+		isFileWatcherEnabled:        true,
+		isUpdateOnStartEnabled:      true,
+		isAutoUpdateEnabled:         true,
+		isCreateTempDataCopyEnabled: true,
+		tempDataDir:                 ".",
 	}
 
 	for _, opt := range opts {
@@ -243,6 +289,13 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 
 	if pl.dataFile == "" {
 		return nil, ErrNoDataFileProvided
+	}
+
+	if pl.isCreateTempDataCopyEnabled {
+		err := pl.copyToTempFile()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err := pl.run()
@@ -315,6 +368,9 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 
 func (e *Engine) Stop() {
 	e.stopCh <- struct{}{}
+	if e.isCreateTempDataCopyEnabled {
+		os.Remove(e.tempDataFile)
+	}
 	if e.manager != nil {
 		e.manager.Free()
 	} else {
@@ -385,8 +441,48 @@ func (e *Engine) hasSomeDistributorParams() bool {
 }
 
 func (e *Engine) handleFileExternallyChanged() {
-	err := e.manager.ReloadFromOriginalFile()
+	e.Lock()
+	defer e.Unlock()
+	err := e.copyToTempFile()
+	if err != nil {
+		e.logger.Printf("failed to copy data file: %v", err)
+		return
+	}
+
+	err = e.manager.ReloadFromOriginalFile()
 	if err != nil {
 		e.logger.Printf("failed to reload data file: %v", err)
 	}
+}
+
+func (e *Engine) copyToTempFile() error {
+	data, err := os.ReadFile(e.dataFile)
+	if err != nil {
+		return fmt.Errorf("failed to read data file: %w", err)
+	}
+	randomUuid := uuid.NewString()
+	_, originalFileName := filepath.Split(e.dataFile)
+	e.tempDataFile = fmt.Sprintf("%s-%s", randomUuid, originalFileName)
+
+	path := filepath.Join(e.tempDataDir, e.tempDataFile)
+
+	_, err = os.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create temp data file: %w", err)
+	}
+
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write temp data file: %w", err)
+	}
+
+	return nil
+}
+
+func (e *Engine) getFilePath() string {
+	if e.isCreateTempDataCopyEnabled {
+		return filepath.Join(e.tempDataDir, e.tempDataFile)
+	}
+
+	return e.dataFile
 }

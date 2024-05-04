@@ -104,7 +104,7 @@ func TestFilePulling(t *testing.T) {
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
-			2,
+			4,
 		),
 		SetMaxRetries(2),
 		WithDataFile(tempFile.Name()),
@@ -112,9 +112,10 @@ func TestFilePulling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
+	defer os.Remove(engine.tempDataFile)
 	defer engine.Stop()
 
-	<-time.After(5000 * time.Millisecond)
+	<-time.After(8 * time.Second)
 
 	if engine.totalFilePulls != 2 {
 		t.Fatalf("Expected 2 file pulls, got %d", engine.totalFilePulls)
@@ -244,6 +245,7 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
+	defer os.Remove(engine.tempDataFile)
 
 	<-time.After(3000 * time.Millisecond)
 	engine.Stop()
@@ -303,14 +305,14 @@ func TestUncompressedDataUrl(t *testing.T) {
 
 	engine, err := New(
 		config,
-		WithDataUpdateUrl(server.URL+"/datafile", 2),
+		WithDataUpdateUrl(server.URL+"/datafile", 4),
 		WithDataFile(tempFile.Name()),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
 	defer engine.Stop()
-	<-time.After(3000 * time.Millisecond)
+	<-time.After(4 * time.Second)
 
 	if engine.totalFilePulls != 1 {
 		t.Fatalf("Expected 1 file pulls, got %d", engine.totalFilePulls)

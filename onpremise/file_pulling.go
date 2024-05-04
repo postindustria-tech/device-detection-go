@@ -54,7 +54,7 @@ func (e *Engine) scheduleFilePulling() {
 				}
 			} else {
 				// pause goroutine for nextIterationInMs
-				<-time.After(time.Duration(nextIterationInMs) * time.Millisecond)
+				<-time.After(time.Duration(nextIterationInMs+e.randomization) * time.Millisecond)
 			}
 
 			e.logger.Printf("Pulling data from %s", e.dataFileUrl)
@@ -63,7 +63,7 @@ func (e *Engine) scheduleFilePulling() {
 				lastModificationTimestamp *time.Time
 			)
 
-			if len(e.dataFile) > 0 {
+			if len(e.getFilePath()) > 0 {
 				file, err := os.Stat(e.dataFile)
 				if err != nil {
 					e.logger.Printf("failed to get file info: %v", err)
@@ -79,7 +79,6 @@ func (e *Engine) scheduleFilePulling() {
 
 			fileResponse, err := doDataFileRequest(e.dataFileUrl, e.logger, lastModificationTimestamp)
 			if err != nil {
-
 				e.logger.Printf("failed to pull data file: %v", err)
 				if errors.Is(err, ErrFileNotModified) {
 					e.logger.Printf("skipping pull, file not modified")
@@ -113,19 +112,11 @@ func (e *Engine) scheduleFilePulling() {
 				continue
 			}
 
-			err = e.createDatafileIfNotExists()
-			if err != nil {
-				e.logger.Printf("failed to create data file: %v", err)
-				// retry after 1 second, since we have unhandled error
-				// this can happen from disk write error or something else
-				retryAttempts += 1
-				nextIterationInMs = retryMs
-				continue
-			}
-
 			// write to dataFile
-			err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), 0644)
+			e.Lock()
+			err = os.WriteFile(e.getFilePath(), fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
+				e.Unlock()
 				e.logger.Printf("failed to write data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from disk write error or something else
@@ -135,20 +126,9 @@ func (e *Engine) scheduleFilePulling() {
 			}
 			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			if !e.isManagerInitialized {
-				err = e.initializeManager()
-				if err != nil {
-					e.logger.Printf("failed to initialize manager: %v", err)
-					// retry after 1 second, since we have unhandled error
-					// this can happen from manager initialization error or something else
-					retryAttempts += 1
-					nextIterationInMs = retryMs
-					continue
-				}
-			}
-
 			err = e.manager.ReloadFromOriginalFile()
 			if err != nil {
+				e.Unlock()
 				e.logger.Printf("failed to reload data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from reload error or something else
@@ -157,6 +137,7 @@ func (e *Engine) scheduleFilePulling() {
 				continue
 			}
 			e.logger.Printf("data file reloaded successfully")
+			e.Unlock()
 
 			if !e.fileSynced {
 				e.fileSynced = true

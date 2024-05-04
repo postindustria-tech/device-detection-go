@@ -17,11 +17,11 @@ type FileWatcher struct {
 	callbacks map[string]func()
 }
 
-func (f FileWatcher) unwatch(path string) error {
+func (f *FileWatcher) unwatch(path string) error {
 	return f.watcher.Remove(path)
 }
 
-func (f FileWatcher) run() error {
+func (f *FileWatcher) run() error {
 	for {
 		select {
 		case event := <-f.watcher.Events:
@@ -42,7 +42,7 @@ func (f FileWatcher) run() error {
 	}
 }
 
-func (f FileWatcher) watch(path string, onChange func()) error {
+func (f *FileWatcher) watch(path string, onChange func()) error {
 	err := f.watcher.Add(path)
 	if err != nil {
 		return err
@@ -53,7 +53,7 @@ func (f FileWatcher) watch(path string, onChange func()) error {
 	return nil
 }
 
-func (f FileWatcher) close() error {
+func (f *FileWatcher) close() error {
 	return f.watcher.Close()
 }
 

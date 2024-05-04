@@ -53,6 +53,7 @@ func TestExternalFileChanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating engine: %v", err)
 	}
+	defer engine.Stop()
 
 	mockEvidence := []Evidence{
 		{
