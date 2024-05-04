@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -37,13 +38,6 @@ func (e *Engine) scheduleFilePulling() {
 		case <-e.stopCh:
 			return
 		default:
-			if e.maxRetries > 0 {
-				if retryAttempts > e.maxRetries && !e.isManagerInitialized {
-					e.rdySignal <- ErrTooManyRetries
-					return
-				}
-			}
-
 			// if this is the first run, we don't need to wait
 			if isFirstRun {
 				isFirstRun = false
@@ -85,9 +79,6 @@ func (e *Engine) scheduleFilePulling() {
 					nextIterationInMs = e.dataFilePullEveryMs
 
 				} else if fileResponse != nil && fileResponse.retryAfter > 0 {
-					if e.isManagerInitialized && e.fileSynced {
-						e.rdySignal <- nil
-					}
 					e.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
 					// retry after the specified time
 					nextIterationInMs = fileResponse.retryAfter * 1000
@@ -114,7 +105,13 @@ func (e *Engine) scheduleFilePulling() {
 
 			// write to dataFile
 			e.Lock()
-			err = os.WriteFile(e.getFilePath(), fileResponse.buffer.Bytes(), 0644)
+
+			newFilePath := e.dataFile
+
+			if e.isCreateTempDataCopyEnabled {
+				newFilePath = filepath.Join(e.tempDataDir, newTempFilePath(e.dataFile))
+			}
+			err = os.WriteFile(newFilePath, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
 				e.Unlock()
 				e.logger.Printf("failed to write data file: %v", err)
@@ -126,10 +123,10 @@ func (e *Engine) scheduleFilePulling() {
 			}
 			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			err = e.manager.ReloadFromOriginalFile()
+			err = e.replaceManager(newFilePath)
 			if err != nil {
 				e.Unlock()
-				e.logger.Printf("failed to reload data file: %v", err)
+				e.logger.Printf("failed to replace manager: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from reload error or something else
 				retryAttempts += 1
@@ -139,9 +136,17 @@ func (e *Engine) scheduleFilePulling() {
 			e.logger.Printf("data file reloaded successfully")
 			e.Unlock()
 
+			if e.isCreateTempDataCopyEnabled {
+				fullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
+				err = os.Remove(fullPath)
+				if err != nil {
+					e.logger.Printf("failed to remove temp data file: %v", err)
+				}
+				_, e.tempDataFile = filepath.Split(newFilePath)
+			}
+
 			if !e.fileSynced {
 				e.fileSynced = true
-				e.rdySignal <- nil
 			}
 
 			timestamp := time.Now().UTC()

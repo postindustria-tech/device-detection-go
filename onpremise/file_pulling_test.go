@@ -108,12 +108,13 @@ func TestFilePulling(t *testing.T) {
 		),
 		SetMaxRetries(2),
 		WithDataFile(tempFile.Name()),
+		ToggleCreateTempDataCopy(true),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
-	defer os.Remove(engine.tempDataFile)
 	defer engine.Stop()
+	defer os.Remove(engine.tempDataFile)
 
 	<-time.After(8 * time.Second)
 

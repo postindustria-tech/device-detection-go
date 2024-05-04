@@ -26,10 +26,8 @@ type Engine struct {
 	manager                       *dd.ResourceManager
 	config                        *dd.ConfigHash
 	totalFilePulls                int
-	rdySignal                     chan error
 	stopCh                        chan struct{}
 	fileSynced                    bool
-	isManagerInitialized          bool
 	product                       string
 	maxRetries                    int
 	lastModificationTimestamp     *time.Time
@@ -55,8 +53,21 @@ var (
 
 // run starts the engine
 func (e *Engine) run() error {
-	if len(e.getFilePath()) > 0 {
-		err := e.initializeManager()
+	if e.isCreateTempDataCopyEnabled {
+		dirpath, tempfilepath, err := e.copyToTempFile()
+		if err != nil {
+			return err
+		}
+		tempDataPathFull := filepath.Join(dirpath, tempfilepath)
+		e.manager = dd.NewResourceManager()
+		err = dd.InitManagerFromFile(e.manager, *e.config, "", tempDataPathFull)
+		if err != nil {
+			return err
+		}
+		e.tempDataFile = tempfilepath
+	} else {
+		e.manager = dd.NewResourceManager()
+		err := dd.InitManagerFromFile(e.manager, *e.config, "", e.dataFile)
 		if err != nil {
 			return err
 		}
@@ -70,16 +81,6 @@ func (e *Engine) run() error {
 	if e.isScheduledFilePullingEnabled && e.isAutoUpdateEnabled {
 		go e.scheduleFilePulling()
 	}
-
-	return nil
-}
-
-func (e *Engine) initializeManager() error {
-	err := dd.InitManagerFromFile(e.manager, *e.config, "", e.getFilePath())
-	if err != nil {
-		return fmt.Errorf("failed to init manager from file: %w", err)
-	}
-	e.isManagerInitialized = true
 
 	return nil
 }
@@ -257,16 +258,12 @@ func Randomization(seconds int) EngineOptions {
 }
 
 func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
-	manager := dd.NewResourceManager()
-
 	pl := &Engine{
 		logger: logWrapper{
 			logger:  DefaultLogger,
 			enabled: true,
 		},
-		manager:     manager,
 		config:      config,
-		rdySignal:   make(chan error, 1),
 		stopCh:      make(chan struct{}, 1),
 		fileSynced:  false,
 		dataFileUrl: defaultDataFileUrl,
@@ -291,27 +288,10 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		return nil, ErrNoDataFileProvided
 	}
 
-	if pl.isCreateTempDataCopyEnabled {
-		err := pl.copyToTempFile()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	err := pl.run()
 	if err != nil {
 		pl.Stop()
 		return nil, err
-	}
-
-	if pl.isScheduledFilePullingEnabled && !pl.isManagerInitialized && pl.isAutoUpdateEnabled {
-		//wait for first file pull
-		err := <-pl.rdySignal
-		defer close(pl.rdySignal)
-		if err != nil {
-			pl.Stop()
-			return nil, err
-		}
 	}
 
 	// if file watcher is enabled, start the watcher
@@ -338,6 +318,8 @@ type Evidence struct {
 }
 
 func (e *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
+	e.RLock()
+	defer e.RUnlock()
 	evidenceHash, err := mapEvidence(evidences)
 	if err != nil {
 		return nil, err
@@ -443,40 +425,82 @@ func (e *Engine) hasSomeDistributorParams() bool {
 func (e *Engine) handleFileExternallyChanged() {
 	e.Lock()
 	defer e.Unlock()
-	err := e.copyToTempFile()
-	if err != nil {
-		e.logger.Printf("failed to copy data file: %v", err)
-		return
-	}
+	if e.isCreateTempDataCopyEnabled {
+		dirPath, filePath, err := e.copyToTempFile()
+		if err != nil {
+			e.logger.Printf("failed to copy data file: %v", err)
+		}
+		fullPath := filepath.Join(dirPath, filePath)
+		err = e.replaceManager(fullPath)
+		if err != nil {
+			e.logger.Printf("failed to replace manager: %v", err)
+		}
 
-	err = e.manager.ReloadFromOriginalFile()
-	if err != nil {
-		e.logger.Printf("failed to reload data file: %v", err)
+		oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
+		err = os.Remove(oldFullPath)
+		if err != nil {
+			e.logger.Printf("failed to remove old temp data file: %v", err)
+		}
+	} else {
+		err := e.replaceManager(e.dataFile)
+		if err != nil {
+			e.logger.Printf("failed to replace manager: %v", err)
+		}
 	}
 }
 
-func (e *Engine) copyToTempFile() error {
+func (e *Engine) replaceManager(filePath string) error {
+	if !e.isCreateTempDataCopyEnabled {
+		err := e.manager.ReloadFromOriginalFile()
+		if err != nil {
+			return fmt.Errorf("failed to reload manager from original file: %w", err)
+		}
+		return nil
+	}
+
+	newManager := dd.NewResourceManager()
+	err := dd.InitManagerFromFile(newManager, *e.config, "", filePath)
+	if err != nil {
+		return fmt.Errorf("failed to init manager from file: %w", err)
+
+	}
+	oldManager := e.manager
+	oldManager.Free()
+	e.manager = newManager
+
+	return nil
+}
+
+func newTempFilePath(originalName string) string {
+	randomUuid := uuid.NewString()
+	newName := fmt.Sprintf("%s-%s", randomUuid, originalName)
+
+	return newName
+}
+
+func (e *Engine) copyToTempFile() (string, string, error) {
 	data, err := os.ReadFile(e.dataFile)
 	if err != nil {
-		return fmt.Errorf("failed to read data file: %w", err)
+		return "", "", fmt.Errorf("failed to read data file: %w", err)
 	}
-	randomUuid := uuid.NewString()
 	_, originalFileName := filepath.Split(e.dataFile)
-	e.tempDataFile = fmt.Sprintf("%s-%s", randomUuid, originalFileName)
 
-	path := filepath.Join(e.tempDataDir, e.tempDataFile)
+	tempFileName := newTempFilePath(originalFileName)
 
-	_, err = os.Create(path)
+	path := filepath.Join(e.tempDataDir, tempFileName)
+
+	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("failed to create temp data file: %w", err)
+		return "", "", fmt.Errorf("failed to create temp data file: %w", err)
 	}
+	defer f.Close()
 
 	err = os.WriteFile(path, data, 0644)
 	if err != nil {
-		return fmt.Errorf("failed to write temp data file: %w", err)
+		return "", "", fmt.Errorf("failed to write temp data file: %w", err)
 	}
 
-	return nil
+	return e.tempDataDir, tempFileName, nil
 }
 
 func (e *Engine) getFilePath() string {
