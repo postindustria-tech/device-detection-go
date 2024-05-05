@@ -107,7 +107,7 @@ func TestExternalFileChanged(t *testing.T) {
 	if browser != "Chromium Project" {
 		t.Fatalf("Expected BrowserName to be Chromium Project, got %s", browser)
 	}
-	tempFile2, err := unzipAndSaveToTempFile("test_external_file_test.hash")
+	tempFile2, err := unzipAndSaveToTempFile("TestExternalFileChanged.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}

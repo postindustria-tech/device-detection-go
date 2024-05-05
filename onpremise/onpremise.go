@@ -192,7 +192,7 @@ func ToggleFileWatch(enabled bool) EngineOptions {
 }
 
 // ToggleUpdateOnStart enables or disables update on start
-// default is true
+// default is false
 // if enabled, engine will pull the data file from the distributor on start of the engine
 func ToggleUpdateOnStart(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
@@ -247,7 +247,7 @@ func SetTempDataDir(dir string) EngineOptions {
 }
 
 // Randomization sets the randomization time in seconds
-// default is 0
+// default is 10 minutes
 // if set, when scheduling the file pulling, it will add randomization time to the interval
 // this is useful to avoid all engines pulling the data file at the same time in case of multiple engines/instances
 func Randomization(seconds int) EngineOptions {
@@ -270,10 +270,12 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		//default 15 minutes
 		dataFilePullEveryMs:         30 * 60 * 1000,
 		isFileWatcherEnabled:        true,
-		isUpdateOnStartEnabled:      true,
+		isUpdateOnStartEnabled:      false,
 		isAutoUpdateEnabled:         true,
 		isCreateTempDataCopyEnabled: true,
 		tempDataDir:                 ".",
+		//default 10 minutes
+		randomization: 10 * 60 * 1000,
 	}
 
 	for _, opt := range opts {
