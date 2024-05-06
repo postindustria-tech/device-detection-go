@@ -105,7 +105,6 @@ func (e *Engine) scheduleFilePulling() {
 
 			// write to dataFile
 			e.Lock()
-
 			newFilePath := e.dataFile
 
 			if e.isCreateTempDataCopyEnabled {
@@ -123,7 +122,7 @@ func (e *Engine) scheduleFilePulling() {
 			}
 			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			err = e.replaceManager(newFilePath)
+			err = e.replaceOrInitManager(newFilePath)
 			if err != nil {
 				e.Unlock()
 				e.logger.Printf("failed to replace manager: %v", err)

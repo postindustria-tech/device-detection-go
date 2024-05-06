@@ -5,6 +5,7 @@ import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"io"
 	"log"
+	"path/filepath"
 
 	"os"
 	"testing"
@@ -48,12 +49,25 @@ func TestExternalFileChanged(t *testing.T) {
 	engine, err := New(
 		config,
 		WithDataFile("TestExternalFileChanged.hash"),
-		ToggleFileWatch(true),
+		WithFileWatch(true),
 	)
 	if err != nil {
 		t.Fatalf("Error creating engine: %v", err)
 	}
 	defer engine.Stop()
+	defer func() {
+		files, err := filepath.Glob("*-TestExternalFileChanged.hash")
+		if err != nil {
+			t.Fatalf("Error listing files: %v", err)
+		}
+
+		for _, f := range files {
+			err = os.Remove(f)
+			if err != nil {
+				t.Fatalf("Error removing file: %v", err)
+			}
+		}
+	}()
 
 	mockEvidence := []Evidence{
 		{

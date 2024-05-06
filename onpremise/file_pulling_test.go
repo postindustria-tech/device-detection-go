@@ -104,11 +104,12 @@ func TestFilePulling(t *testing.T) {
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
-			4,
 		),
-		SetMaxRetries(2),
+		WithPollingInterval(3),
+		WithMaxRetries(2),
 		WithDataFile(tempFile.Name()),
 		ToggleCreateTempDataCopy(true),
+		WithRandomization(0),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
@@ -237,11 +238,12 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
-			2,
 		),
-		SetMaxRetries(2),
+		WithPollingInterval(2),
+		WithMaxRetries(2),
 		WithDataFile(tempFile.Name()),
-		ToggleUpdateOnStart(false),
+		WithUpdateOnStart(false),
+		WithRandomization(0),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
@@ -273,12 +275,13 @@ func TestToggleAutoUpdate(t *testing.T) {
 		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
-			2,
 		),
-		SetMaxRetries(2),
+		WithPollingInterval(2),
+		WithMaxRetries(2),
 		WithDataFile(tempFile.Name()),
-		ToggleUpdateOnStart(false),
-		ToggleAutoUpdate(false),
+		WithUpdateOnStart(false),
+		WithAutoUpdate(false),
+		WithRandomization(0),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
@@ -306,8 +309,10 @@ func TestUncompressedDataUrl(t *testing.T) {
 
 	engine, err := New(
 		config,
-		WithDataUpdateUrl(server.URL+"/datafile", 4),
+		WithDataUpdateUrl(server.URL+"/datafile"),
+		WithPollingInterval(2),
 		WithDataFile(tempFile.Name()),
+		WithRandomization(0),
 	)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
