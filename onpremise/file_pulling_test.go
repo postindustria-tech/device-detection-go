@@ -108,7 +108,7 @@ func TestFilePulling(t *testing.T) {
 		WithPollingInterval(3),
 		WithMaxRetries(2),
 		WithDataFile(tempFile.Name()),
-		ToggleCreateTempDataCopy(true),
+		WithTempDataCopy(true),
 		WithRandomization(0),
 	)
 	if err != nil {

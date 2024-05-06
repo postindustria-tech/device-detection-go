@@ -147,8 +147,8 @@ func WithPollingInterval(seconds int) EngineOptions {
 	}
 }
 
-// WithLoggingToggle enables or disables the logger
-func WithLoggingToggle(enabled bool) EngineOptions {
+// WithLogging enables or disables the logger
+func WithLogging(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.logger.enabled = enabled
 		return nil
@@ -202,12 +202,12 @@ func WithAutoUpdate(enabled bool) EngineOptions {
 	}
 }
 
-// ToggleCreateTempDataCopy enables or disables creating a temp copy of the data file
+// WithTempDataCopy enables or disables creating a temp copy of the data file
 // default is true
 // if enabled, engine will create a temp copy of the data file and use it to initialize the manager
 // if disabled, engine will use the original data file to initialize the manager
 // this is useful when 3rd party updates the data file on file system
-func ToggleCreateTempDataCopy(enabled bool) EngineOptions {
+func WithTempDataCopy(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isCreateTempDataCopyEnabled = enabled
 
