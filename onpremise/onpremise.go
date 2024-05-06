@@ -54,16 +54,10 @@ var (
 // run starts the engine
 func (e *Engine) run() error {
 	if e.isCreateTempDataCopyEnabled {
-		dirpath, tempfilepath, err := e.copyToTempFile()
+		err := e.copyFileAndReplaceManager()
 		if err != nil {
 			return err
 		}
-		tempDataPathFull := filepath.Join(dirpath, tempfilepath)
-		err = e.replaceOrInitManager(tempDataPathFull)
-		if err != nil {
-			return err
-		}
-		e.tempDataFile = tempfilepath
 	} else {
 		err := e.replaceOrInitManager(e.dataFile)
 		if err != nil {
@@ -433,14 +427,9 @@ func (e *Engine) handleFileExternallyChanged() {
 	e.Lock()
 	defer e.Unlock()
 	if e.isCreateTempDataCopyEnabled {
-		dirPath, filePath, err := e.copyToTempFile()
+		err := e.copyFileAndReplaceManager()
 		if err != nil {
-			e.logger.Printf("failed to copy data file: %v", err)
-		}
-		fullPath := filepath.Join(dirPath, filePath)
-		err = e.replaceOrInitManager(fullPath)
-		if err != nil {
-			e.logger.Printf("failed to replace manager: %v", err)
+			e.logger.Printf("failed to copy file and replace manager: %v", err)
 		}
 
 		oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
@@ -454,6 +443,21 @@ func (e *Engine) handleFileExternallyChanged() {
 			e.logger.Printf("failed to replace manager: %v", err)
 		}
 	}
+}
+
+func (e *Engine) copyFileAndReplaceManager() error {
+	dirPath, tempFilepath, err := e.copyToTempFile()
+	if err != nil {
+		return err
+	}
+	fullPath := filepath.Join(dirPath, tempFilepath)
+	err = e.replaceOrInitManager(fullPath)
+	if err != nil {
+		return err
+	}
+	e.tempDataFile = tempFilepath
+
+	return nil
 }
 
 // this function will be called when the engine is started or the is new file available
