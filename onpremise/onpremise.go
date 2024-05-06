@@ -100,7 +100,6 @@ func WithLicenceKey(key string) EngineOptions {
 			return errors.New("licence key can only be set when using default data file url")
 		}
 		cfg.licenceKey = key
-		cfg.isAutoUpdateEnabled = true
 		return nil
 	}
 }
@@ -114,7 +113,6 @@ func WithProduct(product string) EngineOptions {
 		}
 
 		cfg.product = product
-		cfg.isAutoUpdateEnabled = true
 		return nil
 	}
 }
@@ -128,7 +126,6 @@ func WithDataUpdateUrl(urlStr string) EngineOptions {
 		}
 
 		cfg.dataFileUrl = urlStr
-		cfg.isAutoUpdateEnabled = true
 
 		return nil
 	}
