@@ -14,30 +14,29 @@ import (
 
 type Engine struct {
 	sync.RWMutex
-	logger                        logWrapper
-	fileWatcher                   fileWatcher
-	dataFile                      string
-	licenceKey                    string
-	dataFileUrl                   string
-	dataFilePullEveryMs           int
-	isScheduledFilePullingEnabled bool
-	isAutoUpdateEnabled           bool
-	loggerEnabled                 bool
-	manager                       *dd.ResourceManager
-	config                        *dd.ConfigHash
-	totalFilePulls                int
-	stopCh                        chan struct{}
-	fileSynced                    bool
-	product                       string
-	maxRetries                    int
-	lastModificationTimestamp     *time.Time
-	isFileWatcherEnabled          bool
-	isUpdateOnStartEnabled        bool
-	isCreateTempDataCopyEnabled   bool
-	tempDataFile                  string
-	tempDataDir                   string
-	isCopyingFile                 bool
-	randomization                 int
+	logger                      logWrapper
+	fileWatcher                 fileWatcher
+	dataFile                    string
+	licenceKey                  string
+	dataFileUrl                 string
+	dataFilePullEveryMs         int
+	isAutoUpdateEnabled         bool
+	loggerEnabled               bool
+	manager                     *dd.ResourceManager
+	config                      *dd.ConfigHash
+	totalFilePulls              int
+	stopCh                      chan struct{}
+	fileSynced                  bool
+	product                     string
+	maxRetries                  int
+	lastModificationTimestamp   *time.Time
+	isFileWatcherEnabled        bool
+	isUpdateOnStartEnabled      bool
+	isCreateTempDataCopyEnabled bool
+	tempDataFile                string
+	tempDataDir                 string
+	isCopyingFile               bool
+	randomization               int
 }
 
 const (
@@ -70,7 +69,7 @@ func (e *Engine) run() error {
 		return err
 	}
 
-	if e.isScheduledFilePullingEnabled && e.isAutoUpdateEnabled {
+	if e.isAutoUpdateEnabled {
 		go e.scheduleFilePulling()
 	}
 
@@ -101,7 +100,7 @@ func WithLicenceKey(key string) EngineOptions {
 			return errors.New("licence key can only be set when using default data file url")
 		}
 		cfg.licenceKey = key
-		cfg.isScheduledFilePullingEnabled = true
+		cfg.isAutoUpdateEnabled = true
 		return nil
 	}
 }
@@ -115,7 +114,7 @@ func WithProduct(product string) EngineOptions {
 		}
 
 		cfg.product = product
-		cfg.isScheduledFilePullingEnabled = true
+		cfg.isAutoUpdateEnabled = true
 		return nil
 	}
 }
@@ -129,7 +128,7 @@ func WithDataUpdateUrl(urlStr string) EngineOptions {
 		}
 
 		cfg.dataFileUrl = urlStr
-		cfg.isScheduledFilePullingEnabled = true
+		cfg.isAutoUpdateEnabled = true
 
 		return nil
 	}
@@ -399,9 +398,9 @@ func (e *Engine) appendProduct() error {
 }
 
 func (e *Engine) validateAndAppendUrlParams() error {
-	if e.isDefaultDataFileUrl() && !e.hasDefaultDistributorParams() && e.isScheduledFilePullingEnabled {
+	if e.isDefaultDataFileUrl() && !e.hasDefaultDistributorParams() && e.isAutoUpdateEnabled {
 		return ErrLicenceKeyAndProductRequired
-	} else if e.isDefaultDataFileUrl() && e.isScheduledFilePullingEnabled {
+	} else if e.isDefaultDataFileUrl() && e.isAutoUpdateEnabled {
 		err := e.appendLicenceKey()
 		if err != nil {
 			return err

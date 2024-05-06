@@ -50,6 +50,7 @@ func TestExternalFileChanged(t *testing.T) {
 		config,
 		WithDataFile("TestExternalFileChanged.hash"),
 		WithFileWatch(true),
+		WithAutoUpdate(false),
 	)
 	if err != nil {
 		t.Fatalf("Error creating engine: %v", err)
