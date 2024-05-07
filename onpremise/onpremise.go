@@ -8,12 +8,10 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 )
 
 type Engine struct {
-	sync.RWMutex
 	logger                      logWrapper
 	fileWatcher                 fileWatcher
 	dataFile                    string
@@ -37,6 +35,7 @@ type Engine struct {
 	tempDataDir                 string
 	isCopyingFile               bool
 	randomization               int
+	isStopped                   bool
 }
 
 const (
@@ -53,12 +52,12 @@ var (
 // run starts the engine
 func (e *Engine) run() error {
 	if e.isCreateTempDataCopyEnabled {
-		err := e.copyFileAndReplaceManager()
+		err := e.copyFileAndReloadManager()
 		if err != nil {
 			return err
 		}
 	} else {
-		err := e.replaceOrInitManager(e.dataFile)
+		err := e.reloadManager(e.dataFile)
 		if err != nil {
 			return err
 		}
@@ -315,8 +314,6 @@ type Evidence struct {
 }
 
 func (e *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
-	e.RLock()
-	defer e.RUnlock()
 	evidenceHash, err := mapEvidence(evidences)
 	if err != nil {
 		return nil, err
@@ -356,6 +353,7 @@ func (e *Engine) Stop() {
 		e.logger.Printf("manager is nil")
 	}
 	close(e.stopCh)
+	e.isStopped = true
 }
 
 func (e *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
@@ -420,10 +418,8 @@ func (e *Engine) hasSomeDistributorParams() bool {
 }
 
 func (e *Engine) handleFileExternallyChanged() {
-	e.Lock()
-	defer e.Unlock()
 	if e.isCreateTempDataCopyEnabled {
-		err := e.copyFileAndReplaceManager()
+		err := e.copyFileAndReloadManager()
 		if err != nil {
 			e.logger.Printf("failed to copy file and replace manager: %v", err)
 		}
@@ -434,20 +430,20 @@ func (e *Engine) handleFileExternallyChanged() {
 			e.logger.Printf("failed to remove old temp data file: %v", err)
 		}
 	} else {
-		err := e.replaceOrInitManager(e.dataFile)
+		err := e.reloadManager(e.dataFile)
 		if err != nil {
 			e.logger.Printf("failed to replace manager: %v", err)
 		}
 	}
 }
 
-func (e *Engine) copyFileAndReplaceManager() error {
+func (e *Engine) copyFileAndReloadManager() error {
 	dirPath, tempFilepath, err := e.copyToTempFile()
 	if err != nil {
 		return err
 	}
 	fullPath := filepath.Join(dirPath, tempFilepath)
-	err = e.replaceOrInitManager(fullPath)
+	err = e.reloadManager(fullPath)
 	if err != nil {
 		return err
 	}
@@ -459,7 +455,10 @@ func (e *Engine) copyFileAndReplaceManager() error {
 // this function will be called when the engine is started or the is new file available
 // it will create and initialize a new manager from the new file if it does not exist
 // if the manager exists, it will create a new manager from the new file and replace the existing manager thus freeing memory of the old manager
-func (e *Engine) replaceOrInitManager(filePath string) error {
+func (e *Engine) reloadManager(filePath string) error {
+	if e.isStopped {
+		return nil
+	}
 	// if manager is nil, create a new one
 	if e.manager == nil {
 
@@ -479,15 +478,10 @@ func (e *Engine) replaceOrInitManager(filePath string) error {
 		return nil
 	}
 
-	newManager := dd.NewResourceManager()
-	err := dd.InitManagerFromFile(newManager, *e.config, "", filePath)
+	err := e.manager.ReloadFromFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to init manager from file: %w", err)
-
+		return fmt.Errorf("failed to reload manager from file: %w", err)
 	}
-	oldManager := e.manager
-	oldManager.Free()
-	e.manager = newManager
 
 	return nil
 }

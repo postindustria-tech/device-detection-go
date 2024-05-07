@@ -53,7 +53,8 @@ func InitManagerFromFile(
 		config.CPtr,
 		propsRequired.CPtr,
 		cPath,
-		e.CPtr)
+		e.CPtr,
+	)
 
 	// Check exception
 	if !e.IsOkay() {
@@ -94,8 +95,18 @@ func InitManagerFromMemory(
 // ReloadFromFile reloads the data set being used by the resource manager using
 // the specified data file location. This is corresponding to the C API
 // fiftyoneDegreesHashReloadManagerFromFile.
-func (manager *ResourceManager) ReloadFromFile() error {
-	// TODO: To be implemented
+func (manager *ResourceManager) ReloadFromFile(fileName string) error {
+	exp := NewException()
+	cFilenamePath := C.CString(fileName)
+	C.HashReloadManagerFromFile(
+		manager.CPtr,
+		cFilenamePath,
+		exp.CPtr,
+	)
+	if !exp.IsOkay() {
+		return fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
+	}
+
 	return nil
 }
 
@@ -107,7 +118,8 @@ func (manager *ResourceManager) ReloadFromOriginalFile() error {
 	exp := NewException()
 	C.HashReloadManagerFromOriginalFile(
 		manager.CPtr,
-		exp.CPtr)
+		exp.CPtr,
+	)
 	if !exp.IsOkay() {
 		return fmt.Errorf(C.GoString(C.ExceptionGetMessage(exp.CPtr)))
 	}

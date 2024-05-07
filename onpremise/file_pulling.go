@@ -103,8 +103,6 @@ func (e *Engine) scheduleFilePulling() {
 				continue
 			}
 
-			// write to dataFile
-			e.Lock()
 			newFilePath := e.dataFile
 
 			if e.isCreateTempDataCopyEnabled {
@@ -112,7 +110,6 @@ func (e *Engine) scheduleFilePulling() {
 			}
 			err = os.WriteFile(newFilePath, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
-				e.Unlock()
 				e.logger.Printf("failed to write data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from disk write error or something else
@@ -122,9 +119,8 @@ func (e *Engine) scheduleFilePulling() {
 			}
 			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			err = e.replaceOrInitManager(newFilePath)
+			err = e.reloadManager(newFilePath)
 			if err != nil {
-				e.Unlock()
 				e.logger.Printf("failed to replace manager: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from reload error or something else
@@ -133,7 +129,6 @@ func (e *Engine) scheduleFilePulling() {
 				continue
 			}
 			e.logger.Printf("data file reloaded successfully")
-			e.Unlock()
 
 			if e.isCreateTempDataCopyEnabled {
 				fullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
