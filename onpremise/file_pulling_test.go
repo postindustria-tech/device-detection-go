@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"log"
+	"strings"
 
 	"io"
 	"net/http"
@@ -16,7 +17,7 @@ import (
 )
 
 func newMockDataFileServer() *httptest.Server {
-	return httptest.NewServer(
+	s := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				// Open the file for reading
@@ -49,6 +50,10 @@ func newMockDataFileServer() *httptest.Server {
 			},
 		),
 	)
+
+	s.URL = strings.ReplaceAll(s.URL, "127.0.0.1", "localhost")
+
+	return s
 }
 
 func TestFilePulling(t *testing.T) {
