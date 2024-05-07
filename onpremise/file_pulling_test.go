@@ -59,7 +59,7 @@ func newMockDataFileServer() *httptest.Server {
 }
 
 func newMockUncompressedDataFileServer() *httptest.Server {
-	return httptest.NewServer(
+	s := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				// Open the file for reading
@@ -90,6 +90,10 @@ func newMockUncompressedDataFileServer() *httptest.Server {
 			},
 		),
 	)
+
+	s.URL = strings.ReplaceAll(s.URL, "127.0.0.1", "localhost")
+
+	return s
 }
 
 func TestFilePulling(t *testing.T) {
