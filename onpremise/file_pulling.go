@@ -105,9 +105,12 @@ func (e *Engine) scheduleFilePulling() {
 
 			newFilePath := e.dataFile
 
+			// if createTempDataCopy is enabled, write the file to a temp file directly
+			//otherwise write the file to the data file aka original file
 			if e.isCreateTempDataCopyEnabled {
 				newFilePath = filepath.Join(e.tempDataDir, newTempFilePath(e.dataFile))
 			}
+			// write the file to disk
 			err = os.WriteFile(newFilePath, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
 				e.logger.Printf("failed to write data file: %v", err)
