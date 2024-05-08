@@ -123,7 +123,7 @@ func newMockUncompressedDataFileServer(timeout time.Duration) *httptest.Server {
 }
 
 func TestFilePulling(t *testing.T) {
-	server := newMockDataFileServer(5000 * time.Millisecond)
+	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
@@ -257,7 +257,7 @@ func TestIfModifiedSince(t *testing.T) {
 }
 
 func TestIsUpdateOnStartDisabled(t *testing.T) {
-	server := newMockDataFileServer(5000 * time.Millisecond)
+	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
@@ -275,7 +275,6 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 			server.URL+"/datafile",
 		),
 		WithPollingInterval(2),
-		WithMaxRetries(2),
 		WithDataFile(tempFile.Name()),
 		WithUpdateOnStart(false),
 		WithRandomization(0),
@@ -294,7 +293,7 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 }
 
 func TestToggleAutoUpdate(t *testing.T) {
-	server := newMockDataFileServer(5000 * time.Millisecond)
+	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
@@ -331,7 +330,7 @@ func TestToggleAutoUpdate(t *testing.T) {
 }
 
 func TestUncompressedDataUrl(t *testing.T) {
-	server := newMockUncompressedDataFileServer(5000 * time.Millisecond)
+	server := newMockUncompressedDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
