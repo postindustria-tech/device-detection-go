@@ -7,63 +7,60 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
 
 const retryMs = 1000
 
-var (
-	ErrTooManyRetries = errors.New("too many retries to pull data file")
-)
-
 // scheduleFilePulling schedules the file pulling
-func (p *Engine) scheduleFilePulling() {
+func (e *Engine) scheduleFilePulling() {
 	// recover from panic
 	// if panic occurs, we will log the error and restart the file pulling
 	defer func() {
 		if r := recover(); r != nil {
-			p.logger.Printf("error occurred when pulling data: %v", r)
-			go p.scheduleFilePulling()
+			e.logger.Printf("error occurred when pulling data: %v", r)
+			go e.scheduleFilePulling()
 		}
 	}()
 
-	nextIterationInMs := p.dataFilePullEveryMs
+	nextIterationInMs := e.dataFilePullEveryMs
 
 	isFirstRun := true
 	retryAttempts := 0
 
 	for {
 		select {
-		case <-p.stopCh:
+		case <-e.stopCh:
 			return
 		default:
-			if p.maxRetries > 0 {
-				if retryAttempts > p.maxRetries && !p.isManagerInitialized {
-					p.rdySignal <- ErrTooManyRetries
-					return
-				}
-			}
-
 			// if this is the first run, we don't need to wait
 			if isFirstRun {
 				isFirstRun = false
+				// if update on start is disabled, skip the pull and schedule the next pull
+				if !e.isUpdateOnStartEnabled {
+					e.logger.Printf("Skipping pull on start")
+					continue
+				}
 			} else {
-				<-time.After(time.Duration(nextIterationInMs) * time.Millisecond)
+				// pause goroutine for nextIterationInMs
+				<-time.After(time.Duration(nextIterationInMs+e.randomization) * time.Millisecond)
 			}
 
-			p.logger.Printf("Pulling data from %s", p.dataFileUrl)
+			e.logger.Printf("Pulling data from %s", e.dataFileUrl)
 
 			var (
 				lastModificationTimestamp *time.Time
 			)
 
-			if len(p.dataFile) > 0 {
-				file, err := os.Stat(p.dataFile)
+			if len(e.getFilePath()) > 0 {
+				file, err := os.Stat(e.dataFile)
 				if err != nil {
-					p.logger.Printf("failed to get file info: %v", err)
+					e.logger.Printf("failed to get file info: %v", err)
 					// retry after 1 second, since we have unhandled error
 					// this can happen from file info error or something else
 					retryAttempts += 1
@@ -74,23 +71,19 @@ func (p *Engine) scheduleFilePulling() {
 				lastModificationTimestamp = &modTime
 			}
 
-			fileResponse, err := doDataFileRequest(p.dataFileUrl, p.logger, lastModificationTimestamp)
+			fileResponse, err := doDataFileRequest(e.dataFileUrl, e.logger, lastModificationTimestamp)
 			if err != nil {
-
-				p.logger.Printf("failed to pull data file: %v", err)
+				e.logger.Printf("failed to pull data file: %v", err)
 				if errors.Is(err, ErrFileNotModified) {
-					p.logger.Printf("skipping pull, file not modified")
-					nextIterationInMs = p.dataFilePullEveryMs
+					e.logger.Printf("skipping pull, file not modified")
+					nextIterationInMs = e.dataFilePullEveryMs
 
 				} else if fileResponse != nil && fileResponse.retryAfter > 0 {
-					if p.isManagerInitialized && p.fileSynced {
-						p.rdySignal <- nil
-					}
-					p.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
+					e.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
 					// retry after the specified time
 					nextIterationInMs = fileResponse.retryAfter * 1000
 				} else {
-					p.logger.Printf("retrying after 1 second")
+					e.logger.Printf("retrying after 1 second")
 					retryAttempts += 1
 					// retry after 1 second, since we have unhandled error
 					// this can happen from network stutter or something else
@@ -99,10 +92,10 @@ func (p *Engine) scheduleFilePulling() {
 				continue
 			}
 
-			p.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
+			e.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
 
 			if err != nil {
-				p.logger.Printf("failed to create data file: %v", err)
+				e.logger.Printf("failed to create data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from disk write error or something else
 				retryAttempts += 1
@@ -110,60 +103,55 @@ func (p *Engine) scheduleFilePulling() {
 				continue
 			}
 
-			err = p.createDatafileIfNotExists()
+			newFilePath := e.dataFile
+
+			// if createTempDataCopy is enabled, write the file to a temp file directly
+			//otherwise write the file to the data file aka original file
+			if e.isCreateTempDataCopyEnabled {
+				newFilePath = filepath.Join(e.tempDataDir, newTempFilePath(e.dataFile))
+			}
+			// write the file to disk
+			err = os.WriteFile(newFilePath, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
-				p.logger.Printf("failed to create data file: %v", err)
+				e.logger.Printf("failed to write data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from disk write error or something else
 				retryAttempts += 1
 				nextIterationInMs = retryMs
 				continue
 			}
+			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			// write to dataFile
-
-			err = os.WriteFile(p.dataFile, fileResponse.buffer.Bytes(), 0644)
+			err = e.reloadManager(newFilePath)
 			if err != nil {
-				p.logger.Printf("failed to write data file: %v", err)
-				// retry after 1 second, since we have unhandled error
-				// this can happen from disk write error or something else
-				retryAttempts += 1
-				nextIterationInMs = retryMs
-				continue
-			}
-			p.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
-
-			if !p.isManagerInitialized {
-				err = p.initializeManager()
-				if err != nil {
-					p.logger.Printf("failed to initialize manager: %v", err)
-					// retry after 1 second, since we have unhandled error
-					// this can happen from manager initialization error or something else
-					retryAttempts += 1
-					nextIterationInMs = retryMs
-					continue
-				}
-			}
-
-			err = p.manager.ReloadFromOriginalFile()
-			if err != nil {
-				p.logger.Printf("failed to reload data file: %v", err)
+				e.logger.Printf("failed to replace manager: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from reload error or something else
 				retryAttempts += 1
 				nextIterationInMs = retryMs
 				continue
 			}
-			p.logger.Printf("data file reloaded successfully")
+			e.logger.Printf("data file reloaded successfully")
 
-			if !p.fileSynced {
-				p.fileSynced = true
-				p.rdySignal <- nil
+			if e.isCreateTempDataCopyEnabled {
+				fullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
+				err = os.Remove(fullPath)
+				if err != nil {
+					e.logger.Printf("failed to remove temp data file: %v", err)
+				}
+				_, e.tempDataFile = filepath.Split(newFilePath)
 			}
 
+			if !e.fileSynced {
+				e.fileSynced = true
+			}
+
+			timestamp := time.Now().UTC()
+			e.lastModificationTimestamp = &timestamp
+
 			// reset nextIterationInMs
-			nextIterationInMs = p.dataFilePullEveryMs
-			p.totalFilePulls += 1
+			nextIterationInMs = e.dataFilePullEveryMs
+			e.totalFilePulls += 1
 			retryAttempts = 0
 		}
 	}
@@ -173,8 +161,6 @@ type FileResponse struct {
 	buffer     *bytes.Buffer
 	retryAfter int
 }
-
-var ErrFileNotModified = errors.New("data file not modified")
 
 // doDataFileRequest performs the data file request
 func doDataFileRequest(url string, logger logWrapper, timestamp *time.Time) (*FileResponse, error) {
@@ -214,13 +200,31 @@ func doDataFileRequest(url string, logger logWrapper, timestamp *time.Time) (*Fi
 		return nil, fmt.Errorf("failed to pull data file: %s", resp.Status)
 	}
 
-	buffer := bytes.NewBuffer(make([]byte, 0))
-	_, err = buffer.ReadFrom(resp.Body)
-	responseBytes := buffer.Bytes()
+	var (
+		fileBytes     io.Reader
+		responseBytes []byte
+	)
 
-	fileBytes, err := gzip.NewReader(bytes.NewBuffer(responseBytes))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decompress file: %v", err)
+	// check if the response is compressed
+	// if it is, decompress it
+	// if more cases are added, consider using a switch statement or make a factory
+	if resp.Header.Get("Content-Type") == "application/gzip" {
+		buffer := bytes.NewBuffer(make([]byte, 0))
+		_, err = buffer.ReadFrom(resp.Body)
+		responseBytes = buffer.Bytes()
+		fileBytes, err = gzip.NewReader(bytes.NewBuffer(responseBytes))
+		if err != nil {
+			return nil, fmt.Errorf("failed to decompress file: %v", err)
+		}
+		//	if the response is not compressed, read it directly
+	} else {
+		buffer := bytes.NewBuffer(make([]byte, 0))
+		_, err = buffer.ReadFrom(resp.Body)
+		responseBytes = buffer.Bytes()
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response: %v", err)
+		}
+		fileBytes = bytes.NewBuffer(responseBytes)
 	}
 
 	uncompressedBuffer := bytes.NewBuffer(make([]byte, 0))

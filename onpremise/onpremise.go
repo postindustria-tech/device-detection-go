@@ -4,82 +4,72 @@ import (
 	"errors"
 	"fmt"
 	"github.com/51Degrees/device-detection-go/v4/dd"
+	"github.com/google/uuid"
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Engine struct {
-	logger                        logWrapper
-	dataFile                      string
-	licenceKey                    string
-	createTempDataCopy            bool
-	dataUpdateOnStartEnabled      bool
-	dataFileUrl                   string
-	dataFilePullEveryMs           int
-	isScheduledFilePullingEnabled bool
-	loggerEnabled                 bool
-	manager                       *dd.ResourceManager
-	config                        *dd.ConfigHash
-	totalFilePulls                int
-	rdySignal                     chan error
-	stopCh                        chan struct{}
-	fileSynced                    bool
-	isManagerInitialized          bool
-	product                       string
-	maxRetries                    int
+	logger                      logWrapper
+	fileWatcher                 fileWatcher
+	dataFile                    string
+	licenceKey                  string
+	dataFileUrl                 string
+	dataFilePullEveryMs         int
+	isAutoUpdateEnabled         bool
+	loggerEnabled               bool
+	manager                     *dd.ResourceManager
+	config                      *dd.ConfigHash
+	totalFilePulls              int
+	stopCh                      chan struct{}
+	fileSynced                  bool
+	product                     string
+	maxRetries                  int
+	lastModificationTimestamp   *time.Time
+	isFileWatcherEnabled        bool
+	isUpdateOnStartEnabled      bool
+	isCreateTempDataCopyEnabled bool
+	tempDataFile                string
+	tempDataDir                 string
+	isCopyingFile               bool
+	randomization               int
+	isStopped                   bool
 }
 
 const (
 	defaultDataFileUrl = "https://distributor.51degrees.com/api/v2/download?Type=HashV41&Download=True&Product=V4TAC"
 )
 
+var (
+	ErrNoDataFileProvided           = errors.New("no data file provided")
+	ErrTooManyRetries               = errors.New("too many retries to pull data file")
+	ErrFileNotModified              = errors.New("data file not modified")
+	ErrLicenceKeyAndProductRequired = errors.New("licence key and product are required")
+)
+
 // run starts the engine
-func (p *Engine) run() error {
-	if len(p.dataFile) > 0 {
-		err := p.initializeManager()
+func (e *Engine) run() error {
+	if e.isCreateTempDataCopyEnabled {
+		err := e.copyFileAndReloadManager()
+		if err != nil {
+			return err
+		}
+	} else {
+		err := e.reloadManager(e.dataFile)
 		if err != nil {
 			return err
 		}
 	}
 
-	err := p.validateAndAppendUrlParams()
+	err := e.validateAndAppendUrlParams()
 	if err != nil {
 		return err
 	}
 
-	if p.isScheduledFilePullingEnabled {
-		go p.scheduleFilePulling()
-	}
-
-	return nil
-}
-
-func (p *Engine) initializeManager() error {
-
-	err := dd.InitManagerFromFile(p.manager, *p.config, "", p.dataFile)
-	if err != nil {
-		return fmt.Errorf("failed to init manager from file: %w", err)
-	}
-	p.isManagerInitialized = true
-
-	return nil
-}
-
-func (p *Engine) createDatafileIfNotExists() error {
-	_, err := os.Stat(p.dataFile)
-	if err != nil {
-		if len(p.dataFile) == 0 {
-			p.dataFile, err = filepath.Abs("data.hash")
-			if err != nil {
-				p.dataFile = filepath.FromSlash("data.hash")
-			}
-		}
-
-		_, err = os.Create(p.dataFile)
-		if err != nil {
-			return fmt.Errorf("failed to create data file: %w", err)
-		}
+	if e.isAutoUpdateEnabled {
+		go e.scheduleFilePulling()
 	}
 
 	return nil
@@ -87,6 +77,7 @@ func (p *Engine) createDatafileIfNotExists() error {
 
 type EngineOptions func(cfg *Engine) error
 
+// WithDataFile sets the path to the local data file, this parameter is required to start the engine
 func WithDataFile(path string) EngineOptions {
 	return func(cfg *Engine) error {
 		path := filepath.Join(path)
@@ -100,31 +91,33 @@ func WithDataFile(path string) EngineOptions {
 	}
 }
 
-func SetLicenceKey(key string) EngineOptions {
+// WithLicenceKey sets the licence key to use when pulling the data file
+// this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
+func WithLicenceKey(key string) EngineOptions {
 	return func(cfg *Engine) error {
 		if !cfg.isDefaultDataFileUrl() {
 			return errors.New("licence key can only be set when using default data file url")
 		}
 		cfg.licenceKey = key
-		cfg.isScheduledFilePullingEnabled = true
 		return nil
 	}
 }
 
-func SetProduct(product string) EngineOptions {
+// WithProduct sets the product to use when pulling the data file
+// this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
+func WithProduct(product string) EngineOptions {
 	return func(cfg *Engine) error {
 		if !cfg.isDefaultDataFileUrl() {
 			return errors.New("product can only be set when using default data file url")
 		}
 
 		cfg.product = product
-		cfg.isScheduledFilePullingEnabled = true
 		return nil
 	}
 }
 
 // WithDataUpdateUrl sets the URL to pull data from and the interval in milliseconds
-func WithDataUpdateUrl(urlStr string, seconds int) EngineOptions {
+func WithDataUpdateUrl(urlStr string) EngineOptions {
 	return func(cfg *Engine) error {
 		_, err := url.ParseRequestURI(urlStr)
 		if err != nil {
@@ -132,29 +125,29 @@ func WithDataUpdateUrl(urlStr string, seconds int) EngineOptions {
 		}
 
 		cfg.dataFileUrl = urlStr
-		cfg.dataFilePullEveryMs = seconds * 1000
-		cfg.isScheduledFilePullingEnabled = true
 
 		return nil
 	}
 }
 
-func SetMaxRetries(retries int) EngineOptions {
+// WithMaxRetries sets the maximum number of retries to pull the data file
+func WithMaxRetries(retries int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.maxRetries = retries
 		return nil
 	}
 }
 
-func SetPollingInterval(seconds int) EngineOptions {
+// WithPollingInterval sets the interval in seconds to pull the data file
+func WithPollingInterval(seconds int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.dataFilePullEveryMs = seconds * 1000
 		return nil
 	}
 }
 
-// ToggleLogger enables or disables the logger
-func ToggleLogger(enabled bool) EngineOptions {
+// WithLogging enables or disables the logger
+func WithLogging(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.logger.enabled = enabled
 		return nil
@@ -171,52 +164,147 @@ func WithCustomLogger(logger LogWriter) EngineOptions {
 
 		return nil
 	}
+}
 
+// WithFileWatch enables or disables file watching
+// in case 3rd party updates the data file on file system
+// engine will automatically reload the data file
+// default is true
+func WithFileWatch(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isFileWatcherEnabled = enabled
+		return nil
+	}
+}
+
+// WithUpdateOnStart enables or disables update on start
+// default is false
+// if enabled, engine will pull the data file from the distributor on start of the engine
+func WithUpdateOnStart(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isUpdateOnStartEnabled = enabled
+
+		return nil
+	}
+}
+
+// WithAutoUpdate enables or disables auto update
+// default is true
+// if enabled, engine will automatically pull the data file from the distributor
+// if disabled, engine will not pull the data file from the distributor
+// options like WithDataUpdateUrl, WithLicenceKey will be ignored since auto update is disabled
+func WithAutoUpdate(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isAutoUpdateEnabled = enabled
+
+		return nil
+	}
+}
+
+// WithTempDataCopy enables or disables creating a temp copy of the data file
+// default is true
+// if enabled, engine will create a temp copy of the data file and use it to initialize the manager
+// if disabled, engine will use the original data file to initialize the manager
+// this is useful when 3rd party updates the data file on file system
+func WithTempDataCopy(enabled bool) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.isCreateTempDataCopyEnabled = enabled
+
+		return nil
+	}
+}
+
+// SetTempDataDir sets the directory to store the temp data file
+// default is current directory
+func SetTempDataDir(dir string) EngineOptions {
+	return func(cfg *Engine) error {
+		dirFileInfo, err := os.Stat(dir)
+		if err != nil {
+			return fmt.Errorf("failed to get file path: %w", err)
+		}
+
+		if !dirFileInfo.IsDir() {
+			return fmt.Errorf("path is not a directory: %s", dir)
+		}
+
+		cfg.tempDataDir = dir
+		return nil
+	}
+}
+
+// WithRandomization sets the randomization time in seconds
+// default is 10 minutes
+// if set, when scheduling the file pulling, it will add randomization time to the interval
+// this is useful to avoid all engines pulling the data file at the same time in case of multiple engines/instances
+func WithRandomization(seconds int) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.randomization = seconds * 1000
+		return nil
+	}
 }
 
 func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
-	manager := dd.NewResourceManager()
-
-	pl := &Engine{
+	engine := &Engine{
 		logger: logWrapper{
 			logger:  DefaultLogger,
 			enabled: true,
 		},
-		manager:     manager,
 		config:      config,
-		rdySignal:   make(chan error, 1),
 		stopCh:      make(chan struct{}, 1),
 		fileSynced:  false,
 		dataFileUrl: defaultDataFileUrl,
 		//default 15 minutes
-		dataFilePullEveryMs: 15 * 60 * 1000,
+		dataFilePullEveryMs:         30 * 60 * 1000,
+		isFileWatcherEnabled:        true,
+		isUpdateOnStartEnabled:      false,
+		isAutoUpdateEnabled:         true,
+		isCreateTempDataCopyEnabled: true,
+		tempDataDir:                 "",
+		//default 10 minutes
+		randomization: 10 * 60 * 1000,
 	}
 
 	for _, opt := range opts {
-		err := opt(pl)
+		err := opt(engine)
 		if err != nil {
-			pl.Stop()
+			engine.Stop()
 			return nil, err
 		}
 	}
 
-	err := pl.run()
+	if engine.dataFile == "" {
+		return nil, ErrNoDataFileProvided
+	}
+
+	if engine.isCreateTempDataCopyEnabled && engine.tempDataDir == "" {
+		path, err := os.MkdirTemp("", "51degrees-on-premise")
+		if err != nil {
+			return nil, err
+		}
+		engine.tempDataDir = path
+	}
+
+	err := engine.run()
 	if err != nil {
-		pl.Stop()
+		engine.Stop()
 		return nil, err
 	}
 
-	if pl.isScheduledFilePullingEnabled && !pl.isManagerInitialized {
-		//wait for first file pull
-		err := <-pl.rdySignal
-		defer close(pl.rdySignal)
+	// if file watcher is enabled, start the watcher
+	if engine.isFileWatcherEnabled {
+		engine.fileWatcher, err = newFileWatcher(engine.logger)
 		if err != nil {
-			pl.Stop()
 			return nil, err
 		}
+		// this will watch the data file, if it changes, it will reload the data file in the manager
+		err = engine.fileWatcher.watch(engine.dataFile, engine.handleFileExternallyChanged)
+		if err != nil {
+			return nil, err
+		}
+		go engine.fileWatcher.run()
 	}
 
-	return pl, nil
+	return engine, nil
 }
 
 type Evidence struct {
@@ -225,14 +313,14 @@ type Evidence struct {
 	Value  string
 }
 
-func (p *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
+func (e *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
 	evidenceHash, err := mapEvidence(evidences)
 	if err != nil {
 		return nil, err
 	}
 	defer evidenceHash.Free()
 
-	results := dd.NewResultsHash(p.manager, uint32(evidenceHash.Count()), 0)
+	results := dd.NewResultsHash(e.manager, uint32(evidenceHash.Count()), 0)
 	err = results.MatchEvidence(evidenceHash)
 	if err != nil {
 		return nil, fmt.Errorf("failed to match evidence: %w", err)
@@ -254,63 +342,65 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 	return evidenceHash, nil
 }
 
-func (p *Engine) Stop() {
-	p.stopCh <- struct{}{}
-	if p.manager != nil {
-		p.manager.Free()
+func (e *Engine) Stop() {
+	e.stopCh <- struct{}{}
+	if e.isCreateTempDataCopyEnabled {
+		os.Remove(e.tempDataFile)
 	}
-	close(p.stopCh)
+	if e.manager != nil {
+		e.manager.Free()
+	} else {
+		e.logger.Printf("manager is nil")
+	}
+	close(e.stopCh)
+	e.isStopped = true
 }
 
-func (p *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
-	return p.manager.HttpHeaderKeys
+func (e *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
+	return e.manager.HttpHeaderKeys
 }
 
-func (p *Engine) appendLicenceKey() error {
-	urlParsed, err := url.Parse(p.dataFileUrl)
+func (e *Engine) appendLicenceKey() error {
+	urlParsed, err := url.Parse(e.dataFileUrl)
 	if err != nil {
 		return err
 	}
 	query := urlParsed.Query()
-	query.Set("LicenseKeys", p.licenceKey)
+	query.Set("LicenseKeys", e.licenceKey)
 	urlParsed.RawQuery = query.Encode()
 
-	p.dataFileUrl = urlParsed.String()
+	e.dataFileUrl = urlParsed.String()
 
 	return nil
 }
 
-func (p *Engine) isDefaultDataFileUrl() bool {
-	return p.dataFileUrl == defaultDataFileUrl
+func (e *Engine) isDefaultDataFileUrl() bool {
+	return e.dataFileUrl == defaultDataFileUrl
 }
 
-func (p *Engine) appendProduct() error {
-	urlParsed, err := url.Parse(p.dataFileUrl)
+func (e *Engine) appendProduct() error {
+	urlParsed, err := url.Parse(e.dataFileUrl)
 	if err != nil {
 		return fmt.Errorf("failed to parse data file url: %w", err)
 	}
 	query := urlParsed.Query()
-	query.Set("Product", p.product)
+	query.Set("Product", e.product)
 	urlParsed.RawQuery = query.Encode()
 
-	p.dataFileUrl = urlParsed.String()
+	e.dataFileUrl = urlParsed.String()
 
 	return nil
 }
 
-var (
-	ErrLicenceKeyAndProductRequired = errors.New("licence key and product are required")
-)
-
-func (p *Engine) validateAndAppendUrlParams() error {
-	if p.isDefaultDataFileUrl() && !p.hasDefaultDistributorParams() && p.isScheduledFilePullingEnabled {
+func (e *Engine) validateAndAppendUrlParams() error {
+	if e.isDefaultDataFileUrl() && !e.hasDefaultDistributorParams() && e.isAutoUpdateEnabled {
 		return ErrLicenceKeyAndProductRequired
-	} else if p.isDefaultDataFileUrl() && p.isScheduledFilePullingEnabled {
-		err := p.appendLicenceKey()
+	} else if e.isDefaultDataFileUrl() && e.isAutoUpdateEnabled {
+		err := e.appendLicenceKey()
 		if err != nil {
 			return err
 		}
-		err = p.appendProduct()
+		err = e.appendProduct()
 		if err != nil {
 			return err
 		}
@@ -319,10 +409,119 @@ func (p *Engine) validateAndAppendUrlParams() error {
 	return nil
 }
 
-func (p *Engine) hasDefaultDistributorParams() bool {
-	return len(p.licenceKey) > 0 && len(p.product) > 0
+func (e *Engine) hasDefaultDistributorParams() bool {
+	return len(e.licenceKey) > 0 && len(e.product) > 0
 }
 
-func (p *Engine) hasSomeDistributorParams() bool {
-	return len(p.licenceKey) > 0 || len(p.product) > 0
+func (e *Engine) hasSomeDistributorParams() bool {
+	return len(e.licenceKey) > 0 || len(e.product) > 0
+}
+
+func (e *Engine) handleFileExternallyChanged() {
+	if e.isCreateTempDataCopyEnabled {
+		err := e.copyFileAndReloadManager()
+		if err != nil {
+			e.logger.Printf("failed to copy file and replace manager: %v", err)
+		}
+
+		oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
+		err = os.Remove(oldFullPath)
+		if err != nil {
+			e.logger.Printf("failed to remove old temp data file: %v", err)
+		}
+	} else {
+		err := e.reloadManager(e.dataFile)
+		if err != nil {
+			e.logger.Printf("failed to replace manager: %v", err)
+		}
+	}
+}
+
+func (e *Engine) copyFileAndReloadManager() error {
+	dirPath, tempFilepath, err := e.copyToTempFile()
+	if err != nil {
+		return err
+	}
+	fullPath := filepath.Join(dirPath, tempFilepath)
+	err = e.reloadManager(fullPath)
+	if err != nil {
+		return err
+	}
+	e.tempDataFile = tempFilepath
+
+	return nil
+}
+
+// this function will be called when the engine is started or the is new file available
+// it will create and initialize a new manager from the new file if it does not exist
+// if the manager exists, it will create a new manager from the new file and replace the existing manager thus freeing memory of the old manager
+func (e *Engine) reloadManager(filePath string) error {
+	if e.isStopped {
+		return nil
+	}
+	// if manager is nil, create a new one
+	if e.manager == nil {
+
+		e.manager = dd.NewResourceManager()
+		// init manager from file
+		err := dd.InitManagerFromFile(e.manager, *e.config, "", filePath)
+		if err != nil {
+			return fmt.Errorf("failed to init manager from file: %w", err)
+		}
+		// return nil is created for the first time
+		return nil
+	} else if !e.isCreateTempDataCopyEnabled {
+		err := e.manager.ReloadFromOriginalFile()
+		if err != nil {
+			return fmt.Errorf("failed to reload manager from original file: %w", err)
+		}
+		return nil
+	}
+
+	err := e.manager.ReloadFromFile(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to reload manager from file: %w", err)
+	}
+
+	return nil
+}
+
+func newTempFilePath(originalName string) string {
+	randomUuid := uuid.NewString()
+	newName := fmt.Sprintf("%s-%s", randomUuid, originalName)
+
+	return newName
+}
+
+func (e *Engine) copyToTempFile() (string, string, error) {
+	data, err := os.ReadFile(e.dataFile)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to read data file: %w", err)
+	}
+	_, originalFileName := filepath.Split(e.dataFile)
+
+	tempFileName := newTempFilePath(originalFileName)
+
+	path := filepath.Join(e.tempDataDir, tempFileName)
+
+	f, err := os.Create(path)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create temp data file: %w", err)
+	}
+	defer f.Close()
+
+	err = os.WriteFile(path, data, 0644)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to write temp data file: %w", err)
+	}
+
+	return e.tempDataDir, tempFileName, nil
+}
+
+func (e *Engine) getFilePath() string {
+	if e.isCreateTempDataCopyEnabled {
+		return filepath.Join(e.tempDataDir, e.tempDataFile)
+	}
+
+	return e.dataFile
 }
