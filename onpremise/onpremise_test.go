@@ -9,7 +9,7 @@ import (
 )
 
 func TestCustomProvider(t *testing.T) {
-	mockServer := newMockDataFileServer()
+	mockServer := newMockDataFileServer(5000 * time.Millisecond)
 	defer mockServer.Close()
 
 	cases := []struct {
