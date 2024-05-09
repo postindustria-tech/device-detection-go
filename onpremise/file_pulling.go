@@ -113,15 +113,18 @@ func (e *Engine) scheduleFilePulling() {
 			}
 			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			err = e.processFileExternallyChanged()
-			if err != nil {
-				e.logger.Printf("failed to process data file: %v", err)
-				// retry after 1 second, since we have unhandled error
-				// this can happen from reload error or something else
-				retryAttempts += 1
-				nextIterationInMs = retryMs
-				continue
+			if !e.isFileWatcherEnabled {
+				err = e.processFileExternallyChanged()
+				if err != nil {
+					e.logger.Printf("failed to process data file: %v", err)
+					// retry after 1 second, since we have unhandled error
+					// this can happen from reload error or something else
+					retryAttempts += 1
+					nextIterationInMs = retryMs
+					continue
+				}
 			}
+
 			e.logger.Printf("data file reloaded successfully")
 
 			if !e.fileSynced {
