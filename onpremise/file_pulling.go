@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -102,16 +101,8 @@ func (e *Engine) scheduleFilePulling() {
 				nextIterationInMs = retryMs
 				continue
 			}
-
-			newFilePath := e.dataFile
-
-			// if createTempDataCopy is enabled, write the file to a temp file directly
-			//otherwise write the file to the data file aka original file
-			if e.isCreateTempDataCopyEnabled {
-				newFilePath = filepath.Join(e.tempDataDir, newTempFilePath(e.dataFile))
-			}
 			// write the file to disk
-			err = os.WriteFile(newFilePath, fileResponse.buffer.Bytes(), 0644)
+			err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
 				e.logger.Printf("failed to write data file: %v", err)
 				// retry after 1 second, since we have unhandled error
@@ -122,9 +113,9 @@ func (e *Engine) scheduleFilePulling() {
 			}
 			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
 
-			err = e.reloadManager(newFilePath)
+			err = e.processFileExternallyChanged()
 			if err != nil {
-				e.logger.Printf("failed to replace manager: %v", err)
+				e.logger.Printf("failed to process data file: %v", err)
 				// retry after 1 second, since we have unhandled error
 				// this can happen from reload error or something else
 				retryAttempts += 1
@@ -132,15 +123,6 @@ func (e *Engine) scheduleFilePulling() {
 				continue
 			}
 			e.logger.Printf("data file reloaded successfully")
-
-			if e.isCreateTempDataCopyEnabled {
-				fullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
-				err = os.Remove(fullPath)
-				if err != nil {
-					e.logger.Printf("failed to remove temp data file: %v", err)
-				}
-				_, e.tempDataFile = filepath.Split(newFilePath)
-			}
 
 			if !e.fileSynced {
 				e.fileSynced = true
