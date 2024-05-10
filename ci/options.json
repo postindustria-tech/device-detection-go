@@ -21,13 +21,6 @@
     "PackageRequirement": true
   },
   {
-    "Name": "windows-latest-go-1.21",
-    "Image": "windows-latest",
-    "Language": "go",
-    "LanguageVersion": "1.21",
-    "PackageRequirement": true
-  },
-  {
     "Name": "macos-latest-go-1.21",
     "Image": "macos-latest",
     "Language": "go",
