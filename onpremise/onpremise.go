@@ -98,7 +98,6 @@ func WithLicenceKey(key string) EngineOptions {
 
 // WithProduct sets the product to use when pulling the data file
 // this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
-// default is V4Enterprise
 func WithProduct(product string) EngineOptions {
 	return func(cfg *Engine) error {
 		if !cfg.isDefaultDataFileUrl() {
