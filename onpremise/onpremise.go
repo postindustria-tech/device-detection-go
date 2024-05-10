@@ -278,10 +278,6 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		engine.tempDataDir = path
 	}
 
-	if engine.product == "" {
-		engine.product = "V4Enterprise"
-	}
-
 	err := engine.run()
 	if err != nil {
 		engine.Stop()
@@ -408,7 +404,7 @@ func (e *Engine) validateAndAppendUrlParams() error {
 }
 
 func (e *Engine) hasDefaultDistributorParams() bool {
-	return len(e.licenceKey) > 0 && len(e.product) > 0
+	return len(e.licenceKey) > 0
 }
 
 func (e *Engine) hasSomeDistributorParams() bool {
