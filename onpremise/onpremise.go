@@ -51,19 +51,12 @@ var (
 
 // run starts the engine
 func (e *Engine) run() error {
-	if e.isCreateTempDataCopyEnabled {
-		err := e.copyFileAndReloadManager()
-		if err != nil {
-			return err
-		}
-	} else {
-		err := e.reloadManager(e.dataFile)
-		if err != nil {
-			return err
-		}
+	err := e.processFileExternallyChanged()
+	if err != nil {
+		return err
 	}
 
-	err := e.validateAndAppendUrlParams()
+	err = e.validateAndAppendUrlParams()
 	if err != nil {
 		return err
 	}
@@ -410,30 +403,39 @@ func (e *Engine) validateAndAppendUrlParams() error {
 }
 
 func (e *Engine) hasDefaultDistributorParams() bool {
-	return len(e.licenceKey) > 0 && len(e.product) > 0
+	return len(e.licenceKey) > 0
 }
 
 func (e *Engine) hasSomeDistributorParams() bool {
 	return len(e.licenceKey) > 0 || len(e.product) > 0
 }
 
-func (e *Engine) handleFileExternallyChanged() {
+func (e *Engine) processFileExternallyChanged() error {
 	if e.isCreateTempDataCopyEnabled {
 		err := e.copyFileAndReloadManager()
 		if err != nil {
-			e.logger.Printf("failed to copy file and replace manager: %v", err)
+			return err
 		}
 
 		oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
 		err = os.Remove(oldFullPath)
 		if err != nil {
-			e.logger.Printf("failed to remove old temp data file: %v", err)
+			return err
 		}
 	} else {
 		err := e.reloadManager(e.dataFile)
 		if err != nil {
-			e.logger.Printf("failed to replace manager: %v", err)
+			return err
 		}
+	}
+
+	return nil
+}
+
+func (e *Engine) handleFileExternallyChanged() {
+	err := e.processFileExternallyChanged()
+	if err != nil {
+		e.logger.Printf("failed to handle file externally changed: %v", err)
 	}
 }
 
@@ -461,7 +463,6 @@ func (e *Engine) reloadManager(filePath string) error {
 	}
 	// if manager is nil, create a new one
 	if e.manager == nil {
-
 		e.manager = dd.NewResourceManager()
 		// init manager from file
 		err := dd.InitManagerFromFile(e.manager, *e.config, "", filePath)

@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-func newMockDataFileServer() *httptest.Server {
+func newMockDataFileServer(timeout time.Duration) *httptest.Server {
 	s := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +55,36 @@ func newMockDataFileServer() *httptest.Server {
 
 	s.URL = strings.ReplaceAll(s.URL, "127.0.0.1", "localhost")
 
-	return s
+	return awaitServer(s, timeout)
 }
 
-func newMockUncompressedDataFileServer() *httptest.Server {
+func awaitServer(s *httptest.Server, timeout time.Duration) *httptest.Server {
+	readyChan := make(chan struct{}, 1)
+	go func(s *httptest.Server) {
+		for {
+			resp, err := http.Get(s.URL)
+			if err == nil && resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				readyChan <- struct{}{}
+				close(readyChan)
+				return
+			}
+			resp.Body.Close()
+			time.Sleep(50 * time.Millisecond)
+		}
+	}(s)
+
+	select {
+	case <-readyChan:
+		return s
+	case <-time.After(timeout):
+		log.Fatalf("Failed to start server in %v", timeout)
+	}
+
+	return nil
+}
+
+func newMockUncompressedDataFileServer(timeout time.Duration) *httptest.Server {
 	s := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
@@ -93,11 +119,11 @@ func newMockUncompressedDataFileServer() *httptest.Server {
 
 	s.URL = strings.ReplaceAll(s.URL, "127.0.0.1", "localhost")
 
-	return s
+	return awaitServer(s, timeout)
 }
 
 func TestFilePulling(t *testing.T) {
-	server := newMockDataFileServer()
+	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
@@ -231,7 +257,7 @@ func TestIfModifiedSince(t *testing.T) {
 }
 
 func TestIsUpdateOnStartDisabled(t *testing.T) {
-	server := newMockDataFileServer()
+	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
@@ -249,7 +275,6 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 			server.URL+"/datafile",
 		),
 		WithPollingInterval(2),
-		WithMaxRetries(2),
 		WithDataFile(tempFile.Name()),
 		WithUpdateOnStart(false),
 		WithRandomization(0),
@@ -268,7 +293,7 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 }
 
 func TestToggleAutoUpdate(t *testing.T) {
-	server := newMockDataFileServer()
+	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
@@ -305,7 +330,7 @@ func TestToggleAutoUpdate(t *testing.T) {
 }
 
 func TestUncompressedDataUrl(t *testing.T) {
-	server := newMockUncompressedDataFileServer()
+	server := newMockUncompressedDataFileServer(10 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
