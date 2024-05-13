@@ -3,12 +3,13 @@ package onpremise
 import (
 	"errors"
 	"fmt"
-	"github.com/51Degrees/device-detection-go/v4/dd"
-	"github.com/google/uuid"
 	"net/url"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/51Degrees/device-detection-go/v4/dd"
+	"github.com/google/uuid"
 )
 
 type Engine struct {
@@ -420,6 +421,7 @@ func (e *Engine) processFileExternallyChanged() error {
 		oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
 		err = os.Remove(oldFullPath)
 		if err != nil {
+			e.logger.Printf("could not remove file: %s, reason: %s", oldFullPath, err.Error())
 			return err
 		}
 	} else {
