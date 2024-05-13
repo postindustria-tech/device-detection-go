@@ -4,29 +4,34 @@ import (
 	"bytes"
 	"compress/gzip"
 	"errors"
-	"github.com/51Degrees/device-detection-go/v4/dd"
-	"log"
-	"strings"
-
 	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/51Degrees/device-detection-go/v4/dd"
 )
+
+var mockHashMutex sync.Mutex
 
 func newMockDataFileServer(timeout time.Duration) *httptest.Server {
 	s := httptest.NewServer(
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				// Open the file for reading
+				mockHashMutex.Lock()
 				file, err := os.Open("./mock_hash.gz")
 				if err != nil {
 					log.Printf("Failed to open file: %v", err)
 					return
 				}
+				defer mockHashMutex.Unlock()
 				defer file.Close()
 
 				buffer := bytes.NewBuffer(make([]byte, 0))
@@ -89,11 +94,13 @@ func newMockUncompressedDataFileServer(timeout time.Duration) *httptest.Server {
 		http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				// Open the file for reading
+				mockHashMutex.Lock()
 				file, err := os.Open("./mock_hash.gz")
 				if err != nil {
 					log.Printf("Failed to open file: %v", err)
 					return
 				}
+				defer mockHashMutex.Unlock()
 				defer file.Close()
 				w.Header().Add("Content-Type", "application/octet-stream")
 

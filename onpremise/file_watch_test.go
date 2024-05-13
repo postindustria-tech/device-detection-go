@@ -2,17 +2,19 @@ package onpremise
 
 import (
 	"compress/gzip"
-	"github.com/51Degrees/device-detection-go/v4/dd"
 	"io"
 	"log"
-	"path/filepath"
-
 	"os"
+	"path/filepath"
 	"testing"
+
+	"github.com/51Degrees/device-detection-go/v4/dd"
 )
 
 func unzipAndSaveToTempFile(name string) (*os.File, error) {
+	mockHashMutex.Lock()
 	file, err := os.Open("mock_hash.gz")
+	defer mockHashMutex.Unlock()
 	defer file.Close()
 	if err != nil {
 		return nil, err
@@ -134,7 +136,7 @@ func TestExternalFileChanged(t *testing.T) {
 		t.Fatalf("Failed to process evidence: %v", err)
 	}
 
-	browser, err = resultsHash.ValuesString("BrowserName", ",")
+	browser, err = resultsHash2.ValuesString("BrowserName", ",")
 	if err != nil {
 		log.Fatalf("Failed to get BrowserName: %v", err)
 	}
