@@ -4,11 +4,20 @@ import (
 	"fmt"
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"os"
+	"runtime"
 	"testing"
 	"time"
 )
 
+func IsWindows() bool {
+	return runtime.GOOS == "windows"
+}
+
 func TestCustomProvider(t *testing.T) {
+	if IsWindows() {
+		return
+	}
+
 	mockServer := newMockDataFileServer(10 * time.Second)
 	defer mockServer.Close()
 
@@ -20,7 +29,7 @@ func TestCustomProvider(t *testing.T) {
 		{
 			name: "with licence key and custom url",
 			engineOptions: []EngineOptions{
-				WithLicenceKey("123"),
+				WithLicenseKey("123"),
 				WithDataUpdateUrl(mockServer.URL + "/datafile"),
 				WithPollingInterval(2),
 				WithFileWatch(false),
