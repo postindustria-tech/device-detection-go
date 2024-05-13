@@ -93,14 +93,6 @@ func (e *Engine) scheduleFilePulling() {
 
 			e.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
 
-			if err != nil {
-				e.logger.Printf("failed to create data file: %v", err)
-				// retry after 1 second, since we have unhandled error
-				// this can happen from disk write error or something else
-				retryAttempts += 1
-				nextIterationInMs = retryMs
-				continue
-			}
 			// write the file to disk
 			err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), 0644)
 			if err != nil {
