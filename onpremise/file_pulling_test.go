@@ -283,7 +283,7 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 	}
 	defer os.Remove(engine.tempDataFile)
 
-	<-time.After(3000 * time.Millisecond)
+	<-time.After(3 * time.Second)
 	engine.Stop()
 
 	if engine.totalFilePulls != 1 {
@@ -317,7 +317,7 @@ func TestToggleAutoUpdate(t *testing.T) {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
 
-	<-time.After(3000 * time.Millisecond)
+	<-time.After(3 * time.Second)
 	engine.Stop()
 
 	if engine.totalFilePulls != 0 {
@@ -346,7 +346,7 @@ func TestUncompressedDataUrl(t *testing.T) {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
 	defer engine.Stop()
-	<-time.After(4 * time.Second)
+	<-time.After(3500 * time.Millisecond)
 
 	if engine.totalFilePulls != 1 {
 		t.Fatalf("Expected 1 file pulls, got %d", engine.totalFilePulls)
