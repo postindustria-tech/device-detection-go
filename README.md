@@ -43,6 +43,15 @@ In order to build use device-detection-go the following are required:
 - A C compiler that support C11 or above (Gcc on Linux, Clang on MacOS and MinGW-x64 on Windows)
 - libatomic - which usually come with default Gcc, Clang installation
 
+### Windows
+
+If you are on Windows, make sure that:
+- The path to the `MinGW-x64` `bin` folder is included in the `PATH`. By default, the path should be `C:\msys64\ucrt64\bin`
+- Go environment variable `CGO_ENABLED` is set to `1` 
+```
+go env -w CGO_ENABLED=1
+```
+
 ## Module and Packages
 
 This module name `device-detection-go` at path `github.com/51Degrees/device-detection-go/v4`
@@ -51,9 +60,6 @@ This Go Lite version contains only one single package:
 - `dd`
 
 ## Build and Usage
-
-### Windows
-If you are on Windows, make sure the path to the `MinGW-x64` `bin` folder is included in the `PATH`.
 
 ### Build steps for all platforms
 
