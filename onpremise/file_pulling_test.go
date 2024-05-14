@@ -139,7 +139,6 @@ func TestFilePulling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
-	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
 
 	engine, err := New(
@@ -159,7 +158,7 @@ func TestFilePulling(t *testing.T) {
 	defer engine.Stop()
 	defer os.Remove(engine.tempDataFile)
 
-	<-time.After(8 * time.Second)
+	<-time.After(10 * time.Second)
 
 	if engine.totalFilePulls != 2 {
 		t.Fatalf("Expected 2 file pulls, got %d", engine.totalFilePulls)

@@ -34,6 +34,7 @@ type Engine struct {
 	isCreateTempDataCopyEnabled bool
 	tempDataFile                string
 	tempDataDir                 string
+	dataFileLastUsedByManager   string
 	isCopyingFile               bool
 	randomization               int
 	isStopped                   bool
@@ -338,13 +339,14 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 
 func (e *Engine) Stop() {
 	e.stopCh <- struct{}{}
-	if e.isCreateTempDataCopyEnabled {
-		os.Remove(e.tempDataFile)
-	}
 	if e.manager != nil {
 		e.manager.Free()
 	} else {
 		e.logger.Printf("manager is nil")
+	}
+
+	if e.isCreateTempDataCopyEnabled {
+		os.Remove(e.dataFileLastUsedByManager)
 	}
 	close(e.stopCh)
 	e.isStopped = true
@@ -418,13 +420,13 @@ func (e *Engine) processFileExternallyChanged() error {
 			return err
 		}
 
-		oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
-		e.logger.Printf("TRYING TO REMOVE FILE: %s", oldFullPath)
-		err = os.Remove(oldFullPath)
-		if err != nil {
-			e.logger.Printf("error here: %s", err.Error())
-			return err
-		}
+		//oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
+		//e.logger.Printf("TRYING TO REMOVE FILE: %s", oldFullPath)
+		//err = os.Remove(oldFullPath)
+		//if err != nil {
+		//	e.logger.Printf("error here: %s", err.Error())
+		//	return err
+		//}
 	} else {
 		err := e.reloadManager(e.dataFile)
 		if err != nil {
@@ -473,6 +475,7 @@ func (e *Engine) reloadManager(filePath string) error {
 		if err != nil {
 			return fmt.Errorf("failed to init manager from file: %w", err)
 		}
+		e.dataFileLastUsedByManager = filePath
 		// return nil is created for the first time
 		return nil
 	} else if !e.isCreateTempDataCopyEnabled {
@@ -488,6 +491,15 @@ func (e *Engine) reloadManager(filePath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to reload manager from file: %w", err)
 	}
+
+	e.logger.Printf("TRYING TO REMOVE PREVIOUS LOADED FILE: %s", e.dataFileLastUsedByManager)
+	err = os.Remove(e.dataFileLastUsedByManager)
+	if err != nil {
+		e.logger.Printf("error here: %s", err.Error())
+		return err
+	}
+
+	e.dataFileLastUsedByManager = filePath
 
 	return nil
 }
