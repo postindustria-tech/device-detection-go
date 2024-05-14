@@ -1,7 +1,6 @@
 package onpremise
 
 import (
-	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"path/filepath"
 )
@@ -27,7 +26,6 @@ func (f *FileWatcher) run() error {
 	for {
 		select {
 		case event := <-f.watcher.Events:
-			fmt.Println(event.Name, event.Op)
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 				if callback, ok := f.callbacks[event.Name]; ok {
 					f.logger.Printf("File %s has been modified", event.Name)
