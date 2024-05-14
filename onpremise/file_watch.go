@@ -25,7 +25,7 @@ func (f *FileWatcher) run() error {
 	for {
 		select {
 		case event := <-f.watcher.Events:
-			if event.Has(fsnotify.Write) {
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 				f.logger.Printf("File %s has been modified", event.Name)
 				if callback, ok := f.callbacks[event.Name]; ok {
 					callback()

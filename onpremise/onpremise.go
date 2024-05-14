@@ -36,6 +36,7 @@ type Engine struct {
 	isCopyingFile               bool
 	randomization               int
 	isStopped                   bool
+	fileExternallyChangedCount  int
 }
 
 const (
@@ -437,6 +438,7 @@ func (e *Engine) handleFileExternallyChanged() {
 	if err != nil {
 		e.logger.Printf("failed to handle file externally changed: %v", err)
 	}
+	e.fileExternallyChangedCount++
 }
 
 func (e *Engine) copyFileAndReloadManager() error {
