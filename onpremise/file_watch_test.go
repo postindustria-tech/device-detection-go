@@ -6,7 +6,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 	"time"
 
@@ -50,7 +49,7 @@ func TestExternalFileChangedReplace(t *testing.T) {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
 	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	tempFile.Close()
 
 	engine, err := New(
 		config,
@@ -151,29 +150,20 @@ func TestExternalFileChangedReplace(t *testing.T) {
 }
 
 func TestExternalFileChangedMv(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-	}
 	config := dd.NewConfigHash(dd.Balanced)
 
-	tempDir, err := os.MkdirTemp("", "TestExternalFileChangedMv")
-	if err != nil {
-		t.Fatalf("Error creating temp dir: %v", err)
-	}
-	originalFileName := filepath.Join(tempDir, "TestExternalFileChangedMv.hash")
-
-	tempFile, err := unzipAndSaveToTempFile(originalFileName)
+	tempFile, err := unzipAndSaveToTempFile("TestExternalFileChangedMv.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
+	defer os.Remove(tempFile.Name())
 	defer tempFile.Close()
 
 	engine, err := New(
 		config,
-		WithDataFile(originalFileName),
+		WithDataFile("TestExternalFileChangedMv.hash"),
 		WithFileWatch(true),
 		WithAutoUpdate(false),
-		WithTempDataCopy(false),
 	)
 	if err != nil {
 		t.Fatalf("Error creating engine: %v", err)
@@ -197,7 +187,7 @@ func TestExternalFileChangedMv(t *testing.T) {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
 	defer os.Remove(tempFile2.Name())
-	tempFile2.Close()
+	defer tempFile2.Close()
 	err = os.Rename(tempFile2.Name(), tempFile.Name())
 	if err != nil {
 		t.Fatalf("Error renaming file: %v", err)
