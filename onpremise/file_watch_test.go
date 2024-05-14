@@ -23,6 +23,7 @@ func unzipAndSaveToTempFile(name string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer gReader.Close()
 
 	uncompressed, err := io.ReadAll(gReader)
 	err = os.WriteFile(name, uncompressed, 0644)
@@ -34,6 +35,7 @@ func unzipAndSaveToTempFile(name string) (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer uFile.Close()
 
 	return uFile, nil
 }
