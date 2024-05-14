@@ -435,6 +435,7 @@ func (e *Engine) processFileExternallyChanged() error {
 
 func (e *Engine) handleFileExternallyChanged() {
 	err := e.processFileExternallyChanged()
+	fmt.Println("error", err)
 	if err != nil {
 		e.logger.Printf("failed to handle file externally changed: %v", err)
 	}

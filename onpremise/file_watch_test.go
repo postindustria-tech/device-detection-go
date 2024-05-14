@@ -5,11 +5,10 @@ import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
 	"io"
 	"log"
-	"path/filepath"
-	"time"
-
 	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func unzipAndSaveToTempFile(name string) (*os.File, error) {
@@ -148,18 +147,25 @@ func TestExternalFileChangedReplace(t *testing.T) {
 func TestExternalFileChangedMv(t *testing.T) {
 	config := dd.NewConfigHash(dd.Balanced)
 
-	tempFile, err := unzipAndSaveToTempFile("TestExternalFileChangedMv.hash")
+	tempDir, err := os.MkdirTemp("", "TestExternalFileChangedMv")
+	if err != nil {
+		t.Fatalf("Error creating temp dir: %v", err)
+	}
+	originalFileName := filepath.Join(tempDir, "TestExternalFileChangedMv.hash")
+
+	tempFile, err := unzipAndSaveToTempFile(originalFileName)
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	//defer os.Remove(tempFile.Name())
 	defer tempFile.Close()
 
 	engine, err := New(
 		config,
-		WithDataFile("TestExternalFileChangedMv.hash"),
+		WithDataFile(originalFileName),
 		WithFileWatch(true),
 		WithAutoUpdate(false),
+		WithTempDataCopy(false),
 	)
 	if err != nil {
 		t.Fatalf("Error creating engine: %v", err)
@@ -183,7 +189,7 @@ func TestExternalFileChangedMv(t *testing.T) {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
 	defer os.Remove(tempFile2.Name())
-	defer tempFile2.Close()
+	tempFile2.Close()
 	err = os.Rename(tempFile2.Name(), tempFile.Name())
 	if err != nil {
 		t.Fatalf("Error renaming file: %v", err)
@@ -226,8 +232,8 @@ func TestExternalFileChangedMv(t *testing.T) {
 			Value:  `"\"Chromium\";v=\"91.0.4472.124\";a=\"x86\";p=\"Windows\";rv=\"91.0\""`,
 		},
 	}
-	<-time.After(1 * time.Second)
 
+	<-time.After(5 * time.Second)
 	resultsHash, err := engine.Process(mockEvidence)
 	defer resultsHash.Free()
 	if err != nil {
