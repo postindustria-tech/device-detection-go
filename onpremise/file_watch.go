@@ -2,9 +2,8 @@ package onpremise
 
 import (
 	"fmt"
-	"github.com/rjeczalik/notify"
+	"github.com/fsnotify/fsnotify"
 	"path/filepath"
-	"strings"
 )
 
 type fileWatcher interface {
@@ -15,54 +14,42 @@ type fileWatcher interface {
 }
 
 type FileWatcher struct {
-	logger         logWrapper
-	callbacks      map[string]func()
-	notifyChannels map[string]chan notify.EventInfo
+	watcher   *fsnotify.Watcher
+	logger    logWrapper
+	callbacks map[string]func()
 }
 
 func (f *FileWatcher) unwatch(path string) error {
-	delete(f.callbacks, path)
-	notify.Stop(f.notifyChannels[path])
-	return nil
+	return f.watcher.Remove(path)
 }
 
 func (f *FileWatcher) run() error {
-	for fileName, f2 := range f.callbacks {
-		fileDirectory := filepath.Dir(fileName)
-		eventChannel := make(chan notify.EventInfo, 10)
-		err := notify.Watch(fileDirectory, eventChannel,
-			notify.InMovedTo,
-			notify.InCreate,
-			notify.InModify,
-		)
-		if err != nil {
-			return err
-		}
-		f2 := f2
-		fileName := fileName
-		go func() {
-			for {
-				select {
-				case ei := <-eventChannel:
-					fmt.Println(ei.Event().String(), ei.Path(), fileName)
-					if strings.HasSuffix(ei.Path(), fileName) {
-						f.logger.Printf("File %s has been modified", ei.Path())
-						f2()
-					}
+	for {
+		select {
+		case event := <-f.watcher.Events:
+			fmt.Println(event.Name, event.Op)
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+				if callback, ok := f.callbacks[event.Name]; ok {
+					f.logger.Printf("File %s has been modified", event.Name)
+					callback()
 				}
 			}
-		}()
-		f.notifyChannels[fileName] = eventChannel
+		case err, ok := <-f.watcher.Errors:
+			if !ok {
+				return err
+			}
+			if err != nil {
+				f.logger.Printf("Error watching file: %v", err)
+			}
+		}
 	}
-
-	return nil
 }
 
 func (f *FileWatcher) watch(path string, onChange func()) error {
-	//err := f.watcher.Add(path)
-	//if err != nil {
-	//	return err
-	//}
+	err := f.watcher.Add(filepath.Dir(path))
+	if err != nil {
+		return err
+	}
 
 	f.callbacks[path] = onChange
 
@@ -70,17 +57,18 @@ func (f *FileWatcher) watch(path string, onChange func()) error {
 }
 
 func (f *FileWatcher) close() error {
-	for _, c := range f.notifyChannels {
-		notify.Stop(c)
-	}
-
-	return nil
+	return f.watcher.Close()
 }
 
 func newFileWatcher(logger logWrapper) (*FileWatcher, error) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+
 	return &FileWatcher{
-		logger:         logger,
-		callbacks:      make(map[string]func()),
-		notifyChannels: make(map[string]chan notify.EventInfo),
+		watcher:   watcher,
+		logger:    logger,
+		callbacks: make(map[string]func()),
 	}, nil
 }
