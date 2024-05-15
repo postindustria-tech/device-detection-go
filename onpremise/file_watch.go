@@ -2,6 +2,7 @@ package onpremise
 
 import (
 	"github.com/fsnotify/fsnotify"
+	"path/filepath"
 )
 
 type fileWatcher interface {
@@ -25,7 +26,7 @@ func (f *FileWatcher) run() error {
 	for {
 		select {
 		case event := <-f.watcher.Events:
-			if event.Has(fsnotify.Write) {
+			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 				f.logger.Printf("File %s has been modified", event.Name)
 				if callback, ok := f.callbacks[event.Name]; ok {
 					callback()
@@ -43,7 +44,7 @@ func (f *FileWatcher) run() error {
 }
 
 func (f *FileWatcher) watch(path string, onChange func()) error {
-	err := f.watcher.Add(path)
+	err := f.watcher.Add(filepath.Dir(path))
 	if err != nil {
 		return err
 	}
