@@ -3,12 +3,13 @@ package onpremise
 import (
 	"errors"
 	"fmt"
-	"github.com/51Degrees/device-detection-go/v4/dd"
-	"github.com/google/uuid"
 	"net/url"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/51Degrees/device-detection-go/v4/dd"
+	"github.com/google/uuid"
 )
 
 type Engine struct {
@@ -33,6 +34,7 @@ type Engine struct {
 	isCreateTempDataCopyEnabled bool
 	tempDataFile                string
 	tempDataDir                 string
+	dataFileLastUsedByManager   string
 	isCopyingFile               bool
 	randomization               int
 	isStopped                   bool
@@ -337,16 +339,20 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 
 func (e *Engine) Stop() {
 	e.stopCh <- struct{}{}
-	if e.isCreateTempDataCopyEnabled {
-		os.Remove(e.tempDataFile)
-	}
+	close(e.stopCh)
+	e.isStopped = true
+
 	if e.manager != nil {
 		e.manager.Free()
 	} else {
 		e.logger.Printf("manager is nil")
 	}
-	close(e.stopCh)
-	e.isStopped = true
+
+	if e.isCreateTempDataCopyEnabled {
+		dir := filepath.Dir(e.dataFileLastUsedByManager)
+		e.logger.Printf("REMOVING TEMP FOLDER: %s", dir)
+		os.RemoveAll(dir)
+	}
 }
 
 func (e *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
@@ -416,12 +422,6 @@ func (e *Engine) processFileExternallyChanged() error {
 		if err != nil {
 			return err
 		}
-
-		oldFullPath := filepath.Join(e.tempDataDir, e.tempDataFile)
-		err = os.Remove(oldFullPath)
-		if err != nil {
-			return err
-		}
 	} else {
 		err := e.reloadManager(e.dataFile)
 		if err != nil {
@@ -465,10 +465,12 @@ func (e *Engine) reloadManager(filePath string) error {
 	if e.manager == nil {
 		e.manager = dd.NewResourceManager()
 		// init manager from file
+		e.logger.Printf("STARTING MANAGER WITH FILE: %s", filePath)
 		err := dd.InitManagerFromFile(e.manager, *e.config, "", filePath)
 		if err != nil {
 			return fmt.Errorf("failed to init manager from file: %w", err)
 		}
+		e.dataFileLastUsedByManager = filePath
 		// return nil is created for the first time
 		return nil
 	} else if !e.isCreateTempDataCopyEnabled {
@@ -479,10 +481,20 @@ func (e *Engine) reloadManager(filePath string) error {
 		return nil
 	}
 
+	e.logger.Printf("RELOADING MANAGER WITH FILE: %s", filePath)
 	err := e.manager.ReloadFromFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to reload manager from file: %w", err)
 	}
+
+	e.logger.Printf("TRYING TO REMOVE PREVIOUS LOADED FILE: %s", e.dataFileLastUsedByManager)
+	err = os.Remove(e.dataFileLastUsedByManager)
+	if err != nil {
+		e.logger.Printf("error here: %s", err.Error())
+		return err
+	}
+
+	e.dataFileLastUsedByManager = filePath
 
 	return nil
 }
