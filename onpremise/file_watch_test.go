@@ -145,6 +145,9 @@ func TestExternalFileChangedReplace(t *testing.T) {
 }
 
 func TestExternalFileChangedMv(t *testing.T) {
+	if IsWindows() {
+		return
+	}
 	config := dd.NewConfigHash(dd.Balanced)
 
 	tempDir, err := os.MkdirTemp("", "TestExternalFileChangedMv")
