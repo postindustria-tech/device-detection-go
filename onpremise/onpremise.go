@@ -350,7 +350,6 @@ func (e *Engine) Stop() {
 
 	if e.isCreateTempDataCopyEnabled {
 		dir := filepath.Dir(e.dataFileLastUsedByManager)
-		e.logger.Printf("REMOVING TEMP FOLDER: %s", dir)
 		os.RemoveAll(dir)
 	}
 }
@@ -465,7 +464,6 @@ func (e *Engine) reloadManager(filePath string) error {
 	if e.manager == nil {
 		e.manager = dd.NewResourceManager()
 		// init manager from file
-		e.logger.Printf("STARTING MANAGER WITH FILE: %s", filePath)
 		err := dd.InitManagerFromFile(e.manager, *e.config, "", filePath)
 		if err != nil {
 			return fmt.Errorf("failed to init manager from file: %w", err)
@@ -481,16 +479,13 @@ func (e *Engine) reloadManager(filePath string) error {
 		return nil
 	}
 
-	e.logger.Printf("RELOADING MANAGER WITH FILE: %s", filePath)
 	err := e.manager.ReloadFromFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to reload manager from file: %w", err)
 	}
 
-	e.logger.Printf("TRYING TO REMOVE PREVIOUS LOADED FILE: %s", e.dataFileLastUsedByManager)
 	err = os.Remove(e.dataFileLastUsedByManager)
 	if err != nil {
-		e.logger.Printf("error here: %s", err.Error())
 		return err
 	}
 
