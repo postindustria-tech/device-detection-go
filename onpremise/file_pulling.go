@@ -29,109 +29,97 @@ func (e *Engine) scheduleFilePulling() {
 
 	nextIterationInMs := e.dataFilePullEveryMs
 
-	isFirstRun := true
-	retryAttempts := 0
+	// if update on start is enabled, perform the pull immediately
+	if e.isUpdateOnStartEnabled {
+		e.logger.Printf("Doing pull on start")
+		nextIterationInMs = e.doFilePulling()
+	}
 
 	for {
 		select {
 		case <-e.stopCh:
 			return
-		default:
-			// if this is the first run, we don't need to wait
-			if isFirstRun {
-				isFirstRun = false
-				// if update on start is disabled, skip the pull and schedule the next pull
-				if !e.isUpdateOnStartEnabled {
-					e.logger.Printf("Skipping pull on start")
-					continue
-				}
-			} else {
-				// pause goroutine for nextIterationInMs
-				<-time.After(time.Duration(nextIterationInMs+e.randomization) * time.Millisecond)
-			}
-
-			e.logger.Printf("Pulling data from %s", e.dataFileUrl)
-
-			var (
-				lastModificationTimestamp *time.Time
-			)
-
-			if len(e.getFilePath()) > 0 {
-				file, err := os.Stat(e.dataFile)
-				if err != nil {
-					e.logger.Printf("failed to get file info: %v", err)
-					// retry after 1 second, since we have unhandled error
-					// this can happen from file info error or something else
-					retryAttempts += 1
-					nextIterationInMs = retryMs
-					continue
-				}
-				modTime := file.ModTime().UTC()
-				lastModificationTimestamp = &modTime
-			}
-
-			fileResponse, err := doDataFileRequest(e.dataFileUrl, e.logger, lastModificationTimestamp)
-			if err != nil {
-				e.logger.Printf("failed to pull data file: %v", err)
-				if errors.Is(err, ErrFileNotModified) {
-					e.logger.Printf("skipping pull, file not modified")
-					nextIterationInMs = e.dataFilePullEveryMs
-
-				} else if fileResponse != nil && fileResponse.retryAfter > 0 {
-					e.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
-					// retry after the specified time
-					nextIterationInMs = fileResponse.retryAfter * 1000
-				} else {
-					e.logger.Printf("retrying after 1 second")
-					retryAttempts += 1
-					// retry after 1 second, since we have unhandled error
-					// this can happen from network stutter or something else
-					nextIterationInMs = retryMs
-				}
-				continue
-			}
-
-			e.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
-
-			// write the file to disk
-			err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), 0644)
-			if err != nil {
-				e.logger.Printf("failed to write data file: %v", err)
-				// retry after 1 second, since we have unhandled error
-				// this can happen from disk write error or something else
-				retryAttempts += 1
-				nextIterationInMs = retryMs
-				continue
-			}
-			e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
-
-			if !e.isFileWatcherEnabled {
-				err = e.processFileExternallyChanged()
-				if err != nil {
-					e.logger.Printf("failed to process data file: %v", err)
-					// retry after 1 second, since we have unhandled error
-					// this can happen from reload error or something else
-					retryAttempts += 1
-					nextIterationInMs = retryMs
-					continue
-				}
-			}
-
-			e.logger.Printf("data file reloaded successfully")
-
-			if !e.fileSynced {
-				e.fileSynced = true
-			}
-
-			timestamp := time.Now().UTC()
-			e.lastModificationTimestamp = &timestamp
-
-			// reset nextIterationInMs
-			nextIterationInMs = e.dataFilePullEveryMs
-			e.totalFilePulls += 1
-			retryAttempts = 0
+		// interval to perform the pull of updated data
+		case <-time.After(time.Duration(nextIterationInMs+e.randomization) * time.Millisecond):
+			nextIterationInMs = e.doFilePulling()
 		}
 	}
+}
+
+// doFilePulling performs the file pulling
+// returns value for nextIterationInMs, by default this would be e.dataFilePullEveryMs
+// but in case of any errors the value would be modified
+func (e *Engine) doFilePulling() int {
+	e.logger.Printf("Pulling data from %s", e.dataFileUrl)
+
+	var (
+		lastModificationTimestamp *time.Time
+	)
+
+	if len(e.getFilePath()) > 0 {
+		file, err := os.Stat(e.dataFile)
+		if err != nil {
+			e.logger.Printf("failed to get file info: %v", err)
+			// retry after 1 second, since we have unhandled error
+			// this can happen from file info error or something else
+			return retryMs
+		}
+		modTime := file.ModTime().UTC()
+		lastModificationTimestamp = &modTime
+	}
+
+	fileResponse, err := doDataFileRequest(e.dataFileUrl, e.logger, lastModificationTimestamp)
+	if err != nil {
+		e.logger.Printf("failed to pull data file: %v", err)
+		if errors.Is(err, ErrFileNotModified) {
+			e.logger.Printf("skipping pull, file not modified")
+			return e.dataFilePullEveryMs
+		} else if fileResponse != nil && fileResponse.retryAfter > 0 {
+			e.logger.Printf("received retry-after, retrying after %d seconds", fileResponse.retryAfter)
+			// retry after the specified time
+			return fileResponse.retryAfter * 1000
+		} else {
+			e.logger.Printf("retrying after 1 second")
+			// retry after 1 second, since we have unhandled error
+			// this can happen from network stutter or something else
+			return retryMs
+		}
+	}
+
+	e.logger.Printf("data file pulled successfully: %d bytes", fileResponse.buffer.Len())
+
+	// write the file to disk
+	err = os.WriteFile(e.dataFile, fileResponse.buffer.Bytes(), 0644)
+	if err != nil {
+		e.logger.Printf("failed to write data file: %v", err)
+		// retry after 1 second, since we have unhandled error
+		// this can happen from disk write error or something else
+		return retryMs
+	}
+	e.logger.Printf("data file written successfully: %d bytes", fileResponse.buffer.Len())
+
+	if !e.isFileWatcherEnabled {
+		err = e.processFileExternallyChanged()
+		if err != nil {
+			e.logger.Printf("failed to process data file: %v", err)
+			// retry after 1 second, since we have unhandled error
+			// this can happen from reload error or something else
+			return retryMs
+		}
+	}
+
+	e.logger.Printf("data file reloaded successfully")
+
+	if !e.fileSynced {
+		e.fileSynced = true
+	}
+
+	timestamp := time.Now().UTC()
+	e.lastModificationTimestamp = &timestamp
+	e.totalFilePulls += 1
+
+	// reset nextIterationInMs
+	return e.dataFilePullEveryMs
 }
 
 type FileResponse struct {
