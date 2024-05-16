@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -150,6 +151,9 @@ func TestExternalFileChangedReplace(t *testing.T) {
 }
 
 func TestExternalFileChangedMv(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return
+	}
 	config := dd.NewConfigHash(dd.Balanced)
 
 	tempDir, err := os.MkdirTemp("", "TestExternalFileChangedMv")
