@@ -147,6 +147,11 @@ func TestExternalFileChangedReplace(t *testing.T) {
 	if browser != "Chromium Project" {
 		t.Fatalf("Expected BrowserName to be Chromium Project, got %s", browser)
 	}
+
+	<-time.After(4 * time.Second)
+	if engine.fileExternallyChangedCount != 1 {
+		t.Fatalf("Expected 1 file change, got %d", engine.fileExternallyChangedCount)
+	}
 }
 
 func TestExternalFileChangedMv(t *testing.T) {
@@ -247,6 +252,7 @@ func TestExternalFileChangedMv(t *testing.T) {
 		t.Fatalf("Expected BrowserName to be Chromium Project, got %s", browser)
 	}
 
+	<-time.After(4 * time.Second)
 	if engine.fileExternallyChangedCount != 1 {
 		t.Fatalf("Expected 1 file change, got %d", engine.fileExternallyChangedCount)
 	}

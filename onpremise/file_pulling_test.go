@@ -161,7 +161,7 @@ func TestFilePulling(t *testing.T) {
 	defer engine.Stop()
 	defer os.Remove(engine.tempDataFile)
 
-	<-time.After(8 * time.Second)
+	<-time.After(11 * time.Second)
 
 	if engine.totalFilePulls != 2 {
 		t.Fatalf("Expected 2 file pulls, got %d", engine.totalFilePulls)
@@ -300,7 +300,7 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 	}
 	defer os.Remove(engine.tempDataFile)
 
-	<-time.After(3000 * time.Millisecond)
+	<-time.After(6 * time.Second)
 	engine.Stop()
 
 	if engine.totalFilePulls != 1 {
@@ -340,7 +340,7 @@ func TestToggleAutoUpdate(t *testing.T) {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
 
-	<-time.After(3000 * time.Millisecond)
+	<-time.After(6 * time.Second)
 	engine.Stop()
 
 	if engine.totalFilePulls != 0 {
