@@ -16,7 +16,7 @@ type Engine struct {
 	logger                      logWrapper
 	fileWatcher                 fileWatcher
 	dataFile                    string
-	licenceKey                  string
+	licenseKey                  string
 	dataFileUrl                 string
 	dataFilePullEveryMs         int
 	isAutoUpdateEnabled         bool
@@ -38,6 +38,7 @@ type Engine struct {
 	isCopyingFile               bool
 	randomization               int
 	isStopped                   bool
+	fileExternallyChangedCount  int
 }
 
 const (
@@ -48,7 +49,7 @@ var (
 	ErrNoDataFileProvided           = errors.New("no data file provided")
 	ErrTooManyRetries               = errors.New("too many retries to pull data file")
 	ErrFileNotModified              = errors.New("data file not modified")
-	ErrLicenceKeyAndProductRequired = errors.New("licence key and product are required")
+	ErrLicenceKeyAndProductRequired = errors.New("license key and product are required")
 )
 
 // run starts the engine
@@ -86,14 +87,14 @@ func WithDataFile(path string) EngineOptions {
 	}
 }
 
-// WithLicenceKey sets the licence key to use when pulling the data file
+// WithLicenseKey sets the license key to use when pulling the data file
 // this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
-func WithLicenceKey(key string) EngineOptions {
+func WithLicenseKey(key string) EngineOptions {
 	return func(cfg *Engine) error {
 		if !cfg.isDefaultDataFileUrl() {
-			return errors.New("licence key can only be set when using default data file url")
+			return errors.New("license key can only be set when using default data file url")
 		}
-		cfg.licenceKey = key
+		cfg.licenseKey = key
 		return nil
 	}
 }
@@ -187,7 +188,7 @@ func WithUpdateOnStart(enabled bool) EngineOptions {
 // default is true
 // if enabled, engine will automatically pull the data file from the distributor
 // if disabled, engine will not pull the data file from the distributor
-// options like WithDataUpdateUrl, WithLicenceKey will be ignored since auto update is disabled
+// options like WithDataUpdateUrl, WithLicenseKey will be ignored since auto update is disabled
 func WithAutoUpdate(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isAutoUpdateEnabled = enabled
@@ -364,7 +365,7 @@ func (e *Engine) appendLicenceKey() error {
 		return err
 	}
 	query := urlParsed.Query()
-	query.Set("LicenseKeys", e.licenceKey)
+	query.Set("LicenseKeys", e.licenseKey)
 	urlParsed.RawQuery = query.Encode()
 
 	e.dataFileUrl = urlParsed.String()
@@ -408,11 +409,11 @@ func (e *Engine) validateAndAppendUrlParams() error {
 }
 
 func (e *Engine) hasDefaultDistributorParams() bool {
-	return len(e.licenceKey) > 0
+	return len(e.licenseKey) > 0
 }
 
 func (e *Engine) hasSomeDistributorParams() bool {
-	return len(e.licenceKey) > 0 || len(e.product) > 0
+	return len(e.licenseKey) > 0 || len(e.product) > 0
 }
 
 func (e *Engine) processFileExternallyChanged() error {
@@ -436,6 +437,7 @@ func (e *Engine) handleFileExternallyChanged() {
 	if err != nil {
 		e.logger.Printf("failed to handle file externally changed: %v", err)
 	}
+	e.fileExternallyChangedCount++
 }
 
 func (e *Engine) copyFileAndReloadManager() error {

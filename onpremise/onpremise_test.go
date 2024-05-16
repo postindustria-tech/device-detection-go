@@ -18,9 +18,9 @@ func TestCustomProvider(t *testing.T) {
 		expectedError string
 	}{
 		{
-			name: "with licence key and custom url",
+			name: "with license key and custom url",
 			engineOptions: []EngineOptions{
-				WithLicenceKey("123"),
+				WithLicenseKey("123"),
 				WithDataUpdateUrl(mockServer.URL + "/datafile"),
 				WithPollingInterval(2),
 				WithFileWatch(false),
