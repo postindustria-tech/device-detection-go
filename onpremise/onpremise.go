@@ -288,12 +288,12 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 
 	// if file watcher is enabled, start the watcher
 	if engine.isFileWatcherEnabled {
-		engine.fileWatcher, err = newFileWatcher(engine.logger)
+		engine.fileWatcher, err = newFileWatcher(engine.logger, engine.dataFile)
 		if err != nil {
 			return nil, err
 		}
 		// this will watch the data file, if it changes, it will reload the data file in the manager
-		err = engine.fileWatcher.watch(engine.dataFile, engine.handleFileExternallyChanged)
+		err = engine.fileWatcher.watch(engine.handleFileExternallyChanged)
 		if err != nil {
 			return nil, err
 		}
