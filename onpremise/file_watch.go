@@ -14,11 +14,15 @@ type FileWatcher struct {
 	watcher  *Watcher
 	logger   logWrapper
 	callback func()
+	stopCh   chan struct{}
 }
 
 func (f *FileWatcher) run() error {
 	for {
 		select {
+		case <-f.stopCh:
+			f.stop()
+			return nil
 		case event := <-f.watcher.Changed():
 			f.logger.Printf("File %s has been modified", event.Name())
 			f.callback()
@@ -42,7 +46,7 @@ func (f *FileWatcher) stop() error {
 	return f.watcher.Stop()
 }
 
-func newFileWatcher(logger logWrapper, path string) (*FileWatcher, error) {
+func newFileWatcher(logger logWrapper, path string, stopCh chan struct{}) (*FileWatcher, error) {
 	watcher, err := newWatcher(path, time.Millisecond, time.Second)
 	if err != nil {
 		return nil, err
@@ -52,5 +56,6 @@ func newFileWatcher(logger logWrapper, path string) (*FileWatcher, error) {
 		watcher:  watcher,
 		logger:   logger,
 		callback: func() {},
+		stopCh:   stopCh,
 	}, nil
 }
