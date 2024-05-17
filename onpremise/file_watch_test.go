@@ -12,7 +12,7 @@ import (
 	"github.com/51Degrees/device-detection-go/v4/dd"
 )
 
-func unzipAndSaveToTempFile(name string) (*os.File, error) {
+func unzipData() ([]byte, error) {
 	mockHashMutex.Lock()
 	file, err := os.Open("mock_hash.gz")
 	defer mockHashMutex.Unlock()
@@ -27,33 +27,64 @@ func unzipAndSaveToTempFile(name string) (*os.File, error) {
 	defer gReader.Close()
 
 	uncompressed, err := io.ReadAll(gReader)
-	err = os.WriteFile(name, uncompressed, 0644)
 	if err != nil {
 		return nil, err
 	}
 
-	uFile, err := os.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	defer uFile.Close()
-
-	return uFile, nil
+	return uncompressed, nil
 }
 
-func TestExternalFileChangedReplace(t *testing.T) {
+func unzipAndSaveToTempFile(name string) (*os.File, error) {
+	uncompressed, err := unzipData()
+	if err != nil {
+		return nil, err
+	}
+
+	tempFile, err := os.CreateTemp("", name)
+	if err != nil {
+		return nil, err
+	}
+	defer tempFile.Close()
+
+	if _, err := tempFile.Write(uncompressed); err != nil {
+		return nil, err
+	}
+
+	return tempFile, nil
+}
+
+func unzipAndWriteExistingTempFile(path string) (*os.File, error) {
+	uncompressed, err := unzipData()
+	if err != nil {
+		return nil, err
+	}
+
+	tempFile, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, err
+	}
+	defer tempFile.Close()
+
+	if _, err := tempFile.Write(uncompressed); err != nil {
+		return nil, err
+	}
+
+	return tempFile, nil
+}
+
+func TestExternalFileChangedEdit(t *testing.T) {
 	config := dd.NewConfigHash(dd.Balanced)
 
-	tempFile, err := unzipAndSaveToTempFile("TestExternalFileChangedReplace.hash")
+	tempFile, err := unzipAndSaveToTempFile("TestExternalFileChangedEdit.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
 	defer os.Remove(tempFile.Name())
-	tempFile.Close()
+	defer tempFile.Close()
 
 	engine, err := New(
 		config,
-		WithDataFile("TestExternalFileChangedReplace.hash"),
+		WithDataFile(tempFile.Name()),
 		WithFileWatch(true),
 		WithAutoUpdate(false),
 	)
@@ -127,12 +158,14 @@ func TestExternalFileChangedReplace(t *testing.T) {
 	if browser != "Chromium Project" {
 		t.Fatalf("Expected BrowserName to be Chromium Project, got %s", browser)
 	}
-	tempFile2, err := unzipAndSaveToTempFile("TestExternalFileChangedReplace.hash")
+
+	tempFile2, err := unzipAndWriteExistingTempFile(tempFile.Name())
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
-	defer tempFile2.Close()
 	defer os.Remove(tempFile2.Name())
+	defer tempFile2.Close()
+
 	resultsHash2, err := engine.Process(mockEvidence)
 	defer resultsHash2.Free()
 	if err != nil {
@@ -166,7 +199,7 @@ func TestExternalFileChangedMv(t *testing.T) {
 
 	engine, err := New(
 		config,
-		WithDataFile("TestExternalFileChangedMv.hash"),
+		WithDataFile(tempFile.Name()),
 		WithFileWatch(true),
 		WithAutoUpdate(false),
 	)
@@ -187,12 +220,14 @@ func TestExternalFileChangedMv(t *testing.T) {
 			}
 		}
 	}()
+
 	tempFile2, err := unzipAndSaveToTempFile("TestExternalFileChangedMv2.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
 	}
 	defer os.Remove(tempFile2.Name())
 	defer tempFile2.Close()
+
 	err = os.Rename(tempFile2.Name(), tempFile.Name())
 	if err != nil {
 		t.Fatalf("Error renaming file: %v", err)
