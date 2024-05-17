@@ -130,9 +130,6 @@ func newMockUncompressedDataFileServer(timeout time.Duration) *httptest.Server {
 }
 
 func TestFilePulling(t *testing.T) {
-	if IsWindows() {
-		return
-	}
 	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
@@ -248,10 +245,6 @@ func newMockServerModifiedSince() *httptest.Server {
 }
 
 func TestIfModifiedSince(t *testing.T) {
-	if IsWindows() {
-		return
-	}
-
 	server := newMockServerModifiedSince()
 
 	defer server.Close()
@@ -270,9 +263,6 @@ func TestIfModifiedSince(t *testing.T) {
 }
 
 func TestIsUpdateOnStartDisabled(t *testing.T) {
-	if IsWindows() {
-		return
-	}
 	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
@@ -309,9 +299,6 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 }
 
 func TestToggleAutoUpdate(t *testing.T) {
-	if IsWindows() {
-		return
-	}
 	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
@@ -349,9 +336,6 @@ func TestToggleAutoUpdate(t *testing.T) {
 }
 
 func TestUncompressedDataUrl(t *testing.T) {
-	if IsWindows() {
-		return
-	}
 	server := newMockUncompressedDataFileServer(10 * time.Second)
 	defer server.Close()
 
