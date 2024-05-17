@@ -287,7 +287,7 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 
 	// if file watcher is enabled, start the watcher
 	if engine.isFileWatcherEnabled {
-		engine.fileWatcher, err = newFileWatcher(engine.logger, engine.dataFile)
+		engine.fileWatcher, err = newFileWatcher(engine.logger, engine.dataFile, engine.stopCh)
 		if err != nil {
 			return nil, err
 		}
