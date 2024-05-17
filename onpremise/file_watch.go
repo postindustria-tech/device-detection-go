@@ -1,8 +1,9 @@
 package onpremise
 
 import (
-	"github.com/fsnotify/fsnotify"
 	"path/filepath"
+
+	"github.com/fsnotify/fsnotify"
 )
 
 type fileWatcher interface {
@@ -16,6 +17,7 @@ type FileWatcher struct {
 	watcher   *fsnotify.Watcher
 	logger    logWrapper
 	callbacks map[string]func()
+	stopCh    chan struct{}
 }
 
 func (f *FileWatcher) unwatch(path string) error {
@@ -25,6 +27,9 @@ func (f *FileWatcher) unwatch(path string) error {
 func (f *FileWatcher) run() error {
 	for {
 		select {
+		case <-f.stopCh:
+			f.close()
+			return nil
 		case event := <-f.watcher.Events:
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 				f.logger.Printf("File %s has been modified", event.Name)
@@ -58,7 +63,7 @@ func (f *FileWatcher) close() error {
 	return f.watcher.Close()
 }
 
-func newFileWatcher(logger logWrapper) (*FileWatcher, error) {
+func newFileWatcher(logger logWrapper, stopCh chan struct{}) (*FileWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
@@ -68,5 +73,6 @@ func newFileWatcher(logger logWrapper) (*FileWatcher, error) {
 		watcher:   watcher,
 		logger:    logger,
 		callbacks: make(map[string]func()),
+		stopCh:    stopCh,
 	}, nil
 }
