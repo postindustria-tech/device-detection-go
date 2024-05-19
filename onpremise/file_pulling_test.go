@@ -43,7 +43,7 @@ func newMockDataFileServer(timeout time.Duration) *httptest.Server {
 
 				w.Header().Add("Content-MD5", "daebfa89ddefac8e6c4325c38f129504")
 				w.Header().Add("Content-Length", strconv.Itoa(buffer.Len()))
-				w.Header().Add("Content-Type", "application/gzip")
+				w.Header().Add("Content-Type", "application/octet-stream")
 
 				w.WriteHeader(http.StatusOK)
 

@@ -172,20 +172,17 @@ func doDataFileRequest(url string, logger logWrapper, timestamp *time.Time) (*Fi
 
 	// check if the response is compressed
 	// if it is, decompress it
-	// if more cases are added, consider using a switch statement or make a factory
-	if resp.Header.Get("Content-Type") == "application/gzip" {
-		buffer := bytes.NewBuffer(make([]byte, 0))
-		_, err = buffer.ReadFrom(resp.Body)
-		responseBytes = buffer.Bytes()
+	buffer := bytes.NewBuffer(make([]byte, 0))
+	_, err = buffer.ReadFrom(resp.Body)
+	responseBytes = buffer.Bytes()
+	contentType := http.DetectContentType(responseBytes)
+	if isGzip(contentType) {
 		fileBytes, err = gzip.NewReader(bytes.NewBuffer(responseBytes))
 		if err != nil {
 			return nil, fmt.Errorf("failed to decompress file: %v", err)
 		}
 		//	if the response is not compressed, read it directly
 	} else {
-		buffer := bytes.NewBuffer(make([]byte, 0))
-		_, err = buffer.ReadFrom(resp.Body)
-		responseBytes = buffer.Bytes()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response: %v", err)
 		}
@@ -216,6 +213,10 @@ func doDataFileRequest(url string, logger logWrapper, timestamp *time.Time) (*Fi
 		buffer:     bytes.NewBuffer(uncompressedBytes),
 		retryAfter: 0,
 	}, nil
+}
+
+func isGzip(contentType string) bool {
+	return contentType == "application/gzip" || contentType == "application/x-gzip"
 }
 
 func validateMd5(val []byte, hash string) (bool, error) {
