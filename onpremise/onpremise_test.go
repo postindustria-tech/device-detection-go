@@ -2,10 +2,11 @@ package onpremise
 
 import (
 	"fmt"
-	"github.com/51Degrees/device-detection-go/v4/dd"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/51Degrees/device-detection-go/v4/dd"
 )
 
 func TestCustomProvider(t *testing.T) {

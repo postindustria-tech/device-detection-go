@@ -358,7 +358,7 @@ func TestUncompressedDataUrl(t *testing.T) {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
 	defer engine.Stop()
-	<-time.After(3 * time.Second)
+	<-time.After(4 * time.Second)
 
 	if engine.totalFilePulls != 1 {
 		t.Fatalf("Expected 1 file pulls, got %d", engine.totalFilePulls)

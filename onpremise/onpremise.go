@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/51Degrees/device-detection-go/v4/dd"
@@ -24,7 +25,7 @@ type Engine struct {
 	manager                     *dd.ResourceManager
 	config                      *dd.ConfigHash
 	totalFilePulls              int
-	stopCh                      chan struct{}
+	stopCh                      chan *sync.WaitGroup
 	fileSynced                  bool
 	product                     string
 	maxRetries                  int
@@ -39,6 +40,8 @@ type Engine struct {
 	randomization               int
 	isStopped                   bool
 	fileExternallyChangedCount  int
+	filePullerStarted           bool
+	fileWatcherStarted          bool
 }
 
 const (
@@ -65,6 +68,7 @@ func (e *Engine) run() error {
 	}
 
 	if e.isAutoUpdateEnabled {
+		e.filePullerStarted = true
 		go e.scheduleFilePulling()
 	}
 
@@ -246,7 +250,7 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 			enabled: true,
 		},
 		config:      config,
-		stopCh:      make(chan struct{}, 1),
+		stopCh:      make(chan *sync.WaitGroup),
 		fileSynced:  false,
 		dataFileUrl: defaultDataFileUrl,
 		//default 15 minutes
@@ -297,6 +301,7 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		if err != nil {
 			return nil, err
 		}
+		engine.fileWatcherStarted = true
 		go engine.fileWatcher.run()
 	}
 
@@ -339,9 +344,26 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 }
 
 func (e *Engine) Stop() {
-	e.stopCh <- struct{}{}
-	close(e.stopCh)
+	num := 0
+	if e.isAutoUpdateEnabled && e.filePullerStarted {
+		num++ // file puller is enabled and started
+	}
+	if e.isFileWatcherEnabled && e.fileWatcherStarted {
+		num++ // file watcher is enabled and started
+	}
+
+	if num > 0 {
+		var wg sync.WaitGroup
+		wg.Add(num)
+		for i := 0; i < num; i++ {
+			e.stopCh <- &wg
+		}
+		// make sure that all routines finished processing current work, only after that free the manager
+		wg.Wait()
+	}
+
 	e.isStopped = true
+	close(e.stopCh)
 
 	if e.manager != nil {
 		e.manager.Free()

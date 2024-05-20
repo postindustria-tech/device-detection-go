@@ -2,6 +2,7 @@ package onpremise
 
 import (
 	"path/filepath"
+	"sync"
 
 	"github.com/fsnotify/fsnotify"
 )
@@ -17,7 +18,7 @@ type FileWatcher struct {
 	watcher   *fsnotify.Watcher
 	logger    logWrapper
 	callbacks map[string]func()
-	stopCh    chan struct{}
+	stopCh    chan *sync.WaitGroup
 }
 
 func (f *FileWatcher) unwatch(path string) error {
@@ -27,8 +28,9 @@ func (f *FileWatcher) unwatch(path string) error {
 func (f *FileWatcher) run() error {
 	for {
 		select {
-		case <-f.stopCh:
-			f.close()
+		case wg := <-f.stopCh:
+			_ = f.close()
+			defer wg.Done()
 			return nil
 		case event := <-f.watcher.Events:
 			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
@@ -63,7 +65,7 @@ func (f *FileWatcher) close() error {
 	return f.watcher.Close()
 }
 
-func newFileWatcher(logger logWrapper, stopCh chan struct{}) (*FileWatcher, error) {
+func newFileWatcher(logger logWrapper, stopCh chan *sync.WaitGroup) (*FileWatcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
