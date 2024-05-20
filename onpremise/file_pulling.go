@@ -23,7 +23,9 @@ func (e *Engine) scheduleFilePulling() {
 	defer func() {
 		if r := recover(); r != nil {
 			e.logger.Printf("error occurred when pulling data: %v", r)
-			go e.scheduleFilePulling()
+			if !e.isStopped {
+				go e.scheduleFilePulling()
+			}
 		}
 	}()
 
@@ -37,7 +39,8 @@ func (e *Engine) scheduleFilePulling() {
 
 	for {
 		select {
-		case <-e.stopCh:
+		case wg := <-e.stopCh:
+			wg.Done()
 			return
 		// interval to perform the pull of updated data
 		case <-time.After(time.Duration(nextIterationInMs+e.randomization) * time.Millisecond):
@@ -107,8 +110,6 @@ func (e *Engine) doFilePulling() int {
 			return retryMs
 		}
 	}
-
-	e.logger.Printf("data file reloaded successfully")
 
 	if !e.fileSynced {
 		e.fileSynced = true
