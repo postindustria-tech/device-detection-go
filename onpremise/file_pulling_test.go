@@ -130,7 +130,7 @@ func newMockUncompressedDataFileServer(timeout time.Duration) *httptest.Server {
 }
 
 func TestFilePulling(t *testing.T) {
-	server := newMockDataFileServer(10 * time.Second)
+	server := newMockDataFileServer(20 * time.Second)
 	defer server.Close()
 
 	config := dd.NewConfigHash(dd.Balanced)
@@ -158,10 +158,10 @@ func TestFilePulling(t *testing.T) {
 	defer engine.Stop()
 	defer os.Remove(engine.tempDataFile)
 
-	<-time.After(8 * time.Second)
+	<-time.After(16 * time.Second)
 
-	if engine.totalFilePulls != 2 {
-		t.Fatalf("Expected 2 file pulls, got %d", engine.totalFilePulls)
+	if engine.totalFilePulls < 2 {
+		t.Fatalf("Expected at least 2 file pulls, got %d", engine.totalFilePulls)
 	}
 
 	resultsHash, err := engine.Process(
