@@ -43,8 +43,6 @@ func unzipAndSaveToTempFile(name string) (*os.File, error) {
 }
 
 func TestExternalFileChangedReplace(t *testing.T) {
-	config := dd.NewConfigHash(dd.Balanced)
-
 	tempFile, err := unzipAndSaveToTempFile("TestExternalFileChangedReplace.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
@@ -53,7 +51,6 @@ func TestExternalFileChangedReplace(t *testing.T) {
 	defer tempFile.Close()
 
 	engine, err := New(
-		config,
 		WithDataFile("TestExternalFileChangedReplace.hash"),
 		WithFileWatch(true),
 		WithAutoUpdate(false),
@@ -154,7 +151,6 @@ func TestExternalFileChangedMv(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return
 	}
-	config := dd.NewConfigHash(dd.Balanced)
 
 	tempDir, err := os.MkdirTemp("", "TestExternalFileChangedMv")
 	if err != nil {
@@ -169,7 +165,6 @@ func TestExternalFileChangedMv(t *testing.T) {
 	defer tempFile.Close()
 
 	engine, err := New(
-		config,
 		WithDataFile(originalFileName),
 		WithFileWatch(true),
 		WithAutoUpdate(false),

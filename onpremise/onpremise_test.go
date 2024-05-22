@@ -1,7 +1,6 @@
 package onpremise
 
 import (
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -15,11 +14,13 @@ func TestCustomProvider(t *testing.T) {
 
 	cases := []struct {
 		name          string
+		datafile      string
 		engineOptions []EngineOptions
 		expectedError string
 	}{
 		{
-			name: "with license key and custom url",
+			name:     "with license key and custom url",
+			datafile: "withLicenseKey.hash",
 			engineOptions: []EngineOptions{
 				WithLicenseKey("123"),
 				WithDataUpdateUrl(mockServer.URL + "/datafile"),
@@ -29,7 +30,8 @@ func TestCustomProvider(t *testing.T) {
 			expectedError: "",
 		},
 		{
-			name: "with product and custom url",
+			name:     "with product and custom url",
+			datafile: "withProductCustomURL.hash",
 			engineOptions: []EngineOptions{
 				WithProduct("MyProduct"),
 				WithDataUpdateUrl(mockServer.URL + "/datafile"),
@@ -39,7 +41,8 @@ func TestCustomProvider(t *testing.T) {
 			expectedError: "",
 		},
 		{
-			name: "Invalid url",
+			name:     "Invalid url",
+			datafile: "invalidURL.hash",
 			engineOptions: []EngineOptions{
 				WithDataUpdateUrl("dsoahdsakjhd"),
 				WithPollingInterval(2),
@@ -48,7 +51,8 @@ func TestCustomProvider(t *testing.T) {
 			expectedError: `parse "dsoahdsakjhd": invalid URI for request`,
 		},
 		{
-			name: "with custom url",
+			name:     "with custom url",
+			datafile: "withCustomURL.hash",
 			engineOptions: []EngineOptions{
 				WithDataUpdateUrl(mockServer.URL + "/datafile"),
 				WithPollingInterval(2),
@@ -56,46 +60,53 @@ func TestCustomProvider(t *testing.T) {
 			},
 			expectedError: "",
 		},
-		{
-			name: "no data file",
-			engineOptions: []EngineOptions{
-				WithDataUpdateUrl(mockServer.URL + "/datafile"),
-				WithPollingInterval(2),
-				WithFileWatch(false),
-			},
-			expectedError: ErrNoDataFileProvided.Error(),
-		},
 	}
 
 	for _, c := range cases {
-		tempFile, err := unzipAndSaveToTempFile(fmt.Sprintf("test_%s.hash", c.name))
-		if err != nil {
-			t.Fatalf("Error creating temp file: %v", err)
+		defer func(datafile string) {
+			if datafile != "" {
+				err := os.Remove(datafile)
+				if err != nil {
+					t.Fatalf("failed to remove %s: %s", datafile, err)
+				}
+			}
+		}(c.datafile)
+
+		if c.datafile != "" {
+			tempFile, err := unzipAndSaveToTempFile(c.datafile)
+			if err != nil {
+				t.Fatalf("Error creating temp file: %v", err)
+			}
+			tempFile.Close()
 		}
 
-		options := append(c.engineOptions, WithDataFile(tempFile.Name()))
+		options := append(c.engineOptions, WithDataFile(c.datafile))
 
-		defer tempFile.Close()
-		defer os.Remove(tempFile.Name())
-		config := dd.NewConfigHash(dd.Balanced)
 		engine, err := New(
-			config,
 			options...,
 		)
 		if engine != nil {
 			engine.Stop()
 		}
-		<-time.After(3 * time.Second)
-		if err != nil && err.Error() != c.expectedError {
+		//<-time.After(3 * time.Second)
+		if (err != nil && err.Error() != c.expectedError) || (err == nil && c.expectedError != "") {
 			t.Errorf("Failed case %s: %v", c.name, err)
 		}
 	}
 }
 
+func TestNoDataFileProvided(t *testing.T) {
+	engine, err := New()
+	if engine != nil {
+		t.Errorf("expected engine to be nil")
+	}
+	if err != ErrNoDataFileProvided {
+		t.Errorf("expected ErrNoDataFileProvided")
+	}
+}
+
 func testProperties(t *testing.T, properties []string, values []string, noValueProps []string) {
-	config := dd.NewConfigHash(dd.Balanced)
 	engine, err := New(
-		config,
 		WithDataFile("../51Degrees-LiteV4.1.hash"),
 		WithAutoUpdate(false),
 		WithProperties(properties),

@@ -132,9 +132,6 @@ func newMockUncompressedDataFileServer(timeout time.Duration) *httptest.Server {
 func TestFilePulling(t *testing.T) {
 	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
-
-	config := dd.NewConfigHash(dd.Balanced)
-
 	tempFile, err := unzipAndSaveToTempFile("test_file_pulling_test.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
@@ -142,7 +139,6 @@ func TestFilePulling(t *testing.T) {
 	defer os.Remove(tempFile.Name())
 
 	engine, err := New(
-		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
 		),
@@ -266,8 +262,6 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
-	config := dd.NewConfigHash(dd.Balanced)
-
 	tempFile, err := unzipAndSaveToTempFile("TestIsUpdateOnStartDisabled.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
@@ -276,7 +270,6 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 	defer os.Remove(tempFile.Name())
 
 	engine, err := New(
-		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
 		),
@@ -302,8 +295,6 @@ func TestToggleAutoUpdate(t *testing.T) {
 	server := newMockDataFileServer(10 * time.Second)
 	defer server.Close()
 
-	config := dd.NewConfigHash(dd.Balanced)
-
 	tempFile, err := unzipAndSaveToTempFile("TestToggleAutoUpdate.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
@@ -312,7 +303,6 @@ func TestToggleAutoUpdate(t *testing.T) {
 	defer os.Remove(tempFile.Name())
 
 	engine, err := New(
-		config,
 		WithDataUpdateUrl(
 			server.URL+"/datafile",
 		),
@@ -339,7 +329,6 @@ func TestUncompressedDataUrl(t *testing.T) {
 	server := newMockUncompressedDataFileServer(10 * time.Second)
 	defer server.Close()
 
-	config := dd.NewConfigHash(dd.Balanced)
 	tempFile, err := unzipAndSaveToTempFile("TestUncompressedDataUrl.hash")
 	if err != nil {
 		t.Fatalf("Error creating temp file: %v", err)
@@ -348,7 +337,6 @@ func TestUncompressedDataUrl(t *testing.T) {
 	defer os.Remove(tempFile.Name())
 
 	engine, err := New(
-		config,
 		WithDataUpdateUrl(server.URL+"/datafile"),
 		WithPollingInterval(2),
 		WithDataFile(tempFile.Name()),
