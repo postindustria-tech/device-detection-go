@@ -1,45 +1,34 @@
 package onpremise
 
 import (
-	"path/filepath"
 	"sync"
-
-	"github.com/fsnotify/fsnotify"
+	"time"
 )
 
 type fileWatcher interface {
-	watch(path string, onChange func()) error
-	unwatch(path string) error
-	close() error
+	watch(onChange func()) error
+	stop() error
 	run() error
 }
 
 type FileWatcher struct {
-	watcher   *fsnotify.Watcher
-	logger    logWrapper
-	callbacks map[string]func()
-	stopCh    chan *sync.WaitGroup
-}
-
-func (f *FileWatcher) unwatch(path string) error {
-	return f.watcher.Remove(path)
+	watcher  *Watcher
+	logger   logWrapper
+	callback func()
+	stopCh   chan *sync.WaitGroup
 }
 
 func (f *FileWatcher) run() error {
 	for {
 		select {
 		case wg := <-f.stopCh:
-			_ = f.close()
+			f.stop()
 			defer wg.Done()
 			return nil
-		case event := <-f.watcher.Events:
-			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
-				f.logger.Printf("File %s has been modified", event.Name)
-				if callback, ok := f.callbacks[event.Name]; ok {
-					callback()
-				}
-			}
-		case err, ok := <-f.watcher.Errors:
+		case event := <-f.watcher.Changed():
+			f.logger.Printf("File %s has been modified", event.Name())
+			f.callback()
+		case err, ok := <-f.watcher.Errors():
 			if !ok {
 				return err
 			}
@@ -50,31 +39,25 @@ func (f *FileWatcher) run() error {
 	}
 }
 
-func (f *FileWatcher) watch(path string, onChange func()) error {
-	err := f.watcher.Add(filepath.Dir(path))
-	if err != nil {
-		return err
-	}
-
-	f.callbacks[path] = onChange
-
-	return nil
+func (f *FileWatcher) watch(onChange func()) error {
+	f.callback = onChange
+	return f.watcher.Start()
 }
 
-func (f *FileWatcher) close() error {
-	return f.watcher.Close()
+func (f *FileWatcher) stop() error {
+	return f.watcher.Stop()
 }
 
-func newFileWatcher(logger logWrapper, stopCh chan *sync.WaitGroup) (*FileWatcher, error) {
-	watcher, err := fsnotify.NewWatcher()
+func newFileWatcher(logger logWrapper, path string, stopCh chan *sync.WaitGroup) (*FileWatcher, error) {
+	watcher, err := newWatcher(path, time.Second, time.Second)
 	if err != nil {
 		return nil, err
 	}
 
 	return &FileWatcher{
-		watcher:   watcher,
-		logger:    logger,
-		callbacks: make(map[string]func()),
-		stopCh:    stopCh,
+		watcher:  watcher,
+		logger:   logger,
+		callback: func() {},
+		stopCh:   stopCh,
 	}, nil
 }

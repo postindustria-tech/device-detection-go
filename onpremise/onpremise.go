@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/51Degrees/device-detection-go/v4/dd"
-	"github.com/google/uuid"
 )
 
 // Engine is an implementation of the on-premise (based on a local data file) device detection. It encapsulates
@@ -321,12 +320,12 @@ func New(opts ...EngineOptions) (*Engine, error) {
 
 	// if file watcher is enabled, start the watcher
 	if engine.isFileWatcherEnabled {
-		engine.fileWatcher, err = newFileWatcher(engine.logger, engine.stopCh)
+		engine.fileWatcher, err = newFileWatcher(engine.logger, engine.dataFile, engine.stopCh)
 		if err != nil {
 			return nil, err
 		}
 		// this will watch the data file, if it changes, it will reload the data file in the manager
-		err = engine.fileWatcher.watch(engine.dataFile, engine.handleFileExternallyChanged)
+		err = engine.fileWatcher.watch(engine.handleFileExternallyChanged)
 		if err != nil {
 			return nil, err
 		}
@@ -565,35 +564,25 @@ func (e *Engine) reloadManager(filePath string) error {
 	return nil
 }
 
-func newTempFilePath(originalName string) string {
-	randomUuid := uuid.NewString()
-	newName := fmt.Sprintf("%s-%s", randomUuid, originalName)
-
-	return newName
-}
-
 func (e *Engine) copyToTempFile() (string, string, error) {
 	data, err := os.ReadFile(e.dataFile)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read data file: %w", err)
 	}
-	_, originalFileName := filepath.Split(e.dataFile)
+	originalFileName := filepath.Base(e.dataFile)
 
-	tempFileName := newTempFilePath(originalFileName)
-
-	path := filepath.Join(e.tempDataDir, tempFileName)
-
-	f, err := os.Create(path)
+	f, err := os.CreateTemp(e.tempDataDir, originalFileName)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create temp data file: %w", err)
 	}
 	defer f.Close()
 
-	err = os.WriteFile(path, data, 0644)
+	_, err = f.Write(data)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to write temp data file: %w", err)
 	}
 
+	tempFileName := filepath.Base(f.Name())
 	return e.tempDataDir, tempFileName, nil
 }
 

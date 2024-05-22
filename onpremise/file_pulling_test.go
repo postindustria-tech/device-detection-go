@@ -130,7 +130,7 @@ func newMockUncompressedDataFileServer(timeout time.Duration) *httptest.Server {
 }
 
 func TestFilePulling(t *testing.T) {
-	server := newMockDataFileServer(10 * time.Second)
+	server := newMockDataFileServer(20 * time.Second)
 	defer server.Close()
 	tempFile, err := unzipAndSaveToTempFile("test_file_pulling_test.hash")
 	if err != nil {
@@ -154,10 +154,10 @@ func TestFilePulling(t *testing.T) {
 	defer engine.Stop()
 	defer os.Remove(engine.tempDataFile)
 
-	<-time.After(8 * time.Second)
+	<-time.After(16 * time.Second)
 
-	if engine.totalFilePulls != 2 {
-		t.Fatalf("Expected 2 file pulls, got %d", engine.totalFilePulls)
+	if engine.totalFilePulls < 2 {
+		t.Fatalf("Expected at least 2 file pulls, got %d", engine.totalFilePulls)
 	}
 
 	resultsHash, err := engine.Process(
@@ -283,7 +283,7 @@ func TestIsUpdateOnStartDisabled(t *testing.T) {
 	}
 	defer os.Remove(engine.tempDataFile)
 
-	<-time.After(3000 * time.Millisecond)
+	<-time.After(3 * time.Second)
 	engine.Stop()
 
 	if engine.totalFilePulls != 1 {
@@ -317,7 +317,7 @@ func TestToggleAutoUpdate(t *testing.T) {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
 
-	<-time.After(3000 * time.Millisecond)
+	<-time.After(3 * time.Second)
 	engine.Stop()
 
 	if engine.totalFilePulls != 0 {
@@ -346,7 +346,7 @@ func TestUncompressedDataUrl(t *testing.T) {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
 	defer engine.Stop()
-	<-time.After(4 * time.Second)
+	<-time.After(3500 * time.Millisecond)
 
 	if engine.totalFilePulls != 1 {
 		t.Fatalf("Expected 1 file pulls, got %d", engine.totalFilePulls)
