@@ -42,6 +42,7 @@ type Engine struct {
 	fileExternallyChangedCount  int
 	filePullerStarted           bool
 	fileWatcherStarted          bool
+	managerProperties           string
 }
 
 const (
@@ -239,6 +240,16 @@ func SetTempDataDir(dir string) EngineOptions {
 func WithRandomization(seconds int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.randomization = seconds * 1000
+		return nil
+	}
+}
+
+// WithProperties sets properties that the engine checks for
+// default is "" which will include all possible properties
+func WithProperties(properties string) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.managerProperties = properties
+
 		return nil
 	}
 }
@@ -493,7 +504,7 @@ func (e *Engine) reloadManager(filePath string) error {
 	if e.manager == nil {
 		e.manager = dd.NewResourceManager()
 		// init manager from file
-		err := dd.InitManagerFromFile(e.manager, *e.config, "", filePath)
+		err := dd.InitManagerFromFile(e.manager, *e.config, e.managerProperties, filePath)
 
 		if err != nil {
 			return fmt.Errorf("failed to init manager from file: %w", err)
