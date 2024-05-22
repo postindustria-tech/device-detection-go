@@ -91,3 +91,52 @@ func TestCustomProvider(t *testing.T) {
 		}
 	}
 }
+
+func testProperties(t *testing.T, properties []string, values []string, noValueProps []string) {
+	config := dd.NewConfigHash(dd.Balanced)
+	engine, err := New(
+		config,
+		WithDataFile("../51Degrees-LiteV4.1.hash"),
+		WithAutoUpdate(false),
+		WithProperties(properties),
+	)
+
+	if err != nil {
+		t.Fatalf("Error creating engine: %v", err)
+	}
+	result, err := engine.Process([]Evidence{
+		{
+			dd.HttpHeaderString,
+			"User-Agent",
+			"Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.72 Mobile Safari/537.36"},
+	})
+	if err != nil {
+		t.Errorf("Error processing request: %v", err)
+	}
+	defer result.Free()
+	for i := 0; i < len(properties); i++ {
+		value, _ := result.ValuesString(properties[i], "")
+		if value != values[i] {
+			t.Errorf("Error processing request: expected %s, got %s", values[i], value)
+		}
+	}
+
+	for i := 0; i < len(noValueProps); i++ {
+		value, _ := result.ValuesString(noValueProps[i], "")
+		if value != "" {
+			t.Errorf("Error processing request: expected no value, got %s", value)
+		}
+	}
+}
+
+func TestWithPropertiesNoPlatform(t *testing.T) {
+	testProperties(t, []string{"IsMobile", "BrowserName"}, []string{"True", "Chrome Mobile"}, []string{"PlatformName"})
+}
+
+func TestWithPropertiesPlatform(t *testing.T) {
+	testProperties(t, []string{"PlatformName"}, []string{"Android"}, []string{"IsMobile", "BrowserName"})
+}
+
+func TestPropertiesDefault(t *testing.T) {
+	testProperties(t, nil, []string{"True", "Chrome Mobile", "Android"}, nil)
+}

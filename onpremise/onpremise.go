@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -50,10 +51,10 @@ const (
 )
 
 var (
-	ErrNoDataFileProvided           = errors.New("no data file provided")
-	ErrTooManyRetries               = errors.New("too many retries to pull data file")
-	ErrFileNotModified              = errors.New("data file not modified")
-	ErrLicenceKeyAndProductRequired = errors.New("license key and product are required")
+	ErrNoDataFileProvided = errors.New("no data file provided")
+	ErrTooManyRetries     = errors.New("too many retries to pull data file")
+	ErrFileNotModified    = errors.New("data file not modified")
+	ErrLicenseKeyRequired = errors.New("auto update set to true, no custom URL specified, license key is required")
 )
 
 // run starts the engine
@@ -246,10 +247,11 @@ func WithRandomization(seconds int) EngineOptions {
 
 // WithProperties sets properties that the engine checks for
 // default is "" which will include all possible properties
-func WithProperties(properties string) EngineOptions {
+func WithProperties(properties []string) EngineOptions {
 	return func(cfg *Engine) error {
-		cfg.managerProperties = properties
-
+		if properties != nil {
+			cfg.managerProperties = strings.Join(properties, ",")
+		}
 		return nil
 	}
 }
@@ -272,7 +274,8 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 		isCreateTempDataCopyEnabled: true,
 		tempDataDir:                 "",
 		//default 10 minutes
-		randomization: 10 * 60 * 1000,
+		randomization:     10 * 60 * 1000,
+		managerProperties: "",
 	}
 
 	for _, opt := range opts {
@@ -426,7 +429,7 @@ func (e *Engine) appendProduct() error {
 
 func (e *Engine) validateAndAppendUrlParams() error {
 	if e.isDefaultDataFileUrl() && !e.hasDefaultDistributorParams() && e.isAutoUpdateEnabled {
-		return ErrLicenceKeyAndProductRequired
+		return ErrLicenseKeyRequired
 	} else if e.isDefaultDataFileUrl() && e.isAutoUpdateEnabled {
 		err := e.appendLicenceKey()
 		if err != nil {
