@@ -49,7 +49,7 @@ func (f *FileWatcher) stop() error {
 }
 
 func newFileWatcher(logger logWrapper, path string, stopCh chan *sync.WaitGroup) (*FileWatcher, error) {
-	watcher, err := newWatcher(path, time.Millisecond, time.Second)
+	watcher, err := newWatcher(path, time.Second, time.Second)
 	if err != nil {
 		return nil, err
 	}
