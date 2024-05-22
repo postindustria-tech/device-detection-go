@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +14,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// Engine is an implementation of the on-premise (based on a local data file) device detection. It encapsulates
+// the automatic data file updates feature - to periodically fetch and reload the new data file.
+// File system watcher feature allows to monitor for changes to the local data file and reload it when it changes.
+// Custom URL can be used to fetch data files, the polling interval is configurable
+// The 51degrees distributor service can also be used with a licenseKey
+// For more information see With... options and examples
 type Engine struct {
 	logger                      logWrapper
 	fileWatcher                 fileWatcher
@@ -42,6 +49,7 @@ type Engine struct {
 	fileExternallyChangedCount  int
 	filePullerStarted           bool
 	fileWatcherStarted          bool
+	managerProperties           string
 }
 
 const (
@@ -49,10 +57,10 @@ const (
 )
 
 var (
-	ErrNoDataFileProvided           = errors.New("no data file provided")
-	ErrTooManyRetries               = errors.New("too many retries to pull data file")
-	ErrFileNotModified              = errors.New("data file not modified")
-	ErrLicenceKeyAndProductRequired = errors.New("license key and product are required")
+	ErrNoDataFileProvided = errors.New("no data file provided")
+	ErrTooManyRetries     = errors.New("too many retries to pull data file")
+	ErrFileNotModified    = errors.New("data file not modified")
+	ErrLicenseKeyRequired = errors.New("auto update set to true, no custom URL specified, license key is required, set it using WithLicenseKey")
 )
 
 // run starts the engine
@@ -91,6 +99,18 @@ func WithDataFile(path string) EngineOptions {
 	}
 }
 
+// WithConfigHash allows to configure the Hash matching algorithm.
+// See dd.ConfigHash type for all available settings:
+// PerformanceProfile, Drift, Difference, Concurrency
+// By default initialized with dd.Balanced performance profile
+// dd.NewConfigHash(dd.Balanced)
+func WithConfigHash(configHash *dd.ConfigHash) EngineOptions {
+	return func(cfg *Engine) error {
+		cfg.config = configHash
+		return nil
+	}
+}
+
 // WithLicenseKey sets the license key to use when pulling the data file
 // this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
 func WithLicenseKey(key string) EngineOptions {
@@ -103,8 +123,8 @@ func WithLicenseKey(key string) EngineOptions {
 	}
 }
 
-// WithProduct sets the product to use when pulling the data file
-// this option can only be used when using the default data file url from 51Degrees, it will be appended as a query parameter
+// WithProduct sets the product to use when pulling the data file when distributor service is used
+// licenseKey has to be provided using WithLicenseKey
 func WithProduct(product string) EngineOptions {
 	return func(cfg *Engine) error {
 		if !cfg.isDefaultDataFileUrl() {
@@ -116,7 +136,7 @@ func WithProduct(product string) EngineOptions {
 	}
 }
 
-// WithDataUpdateUrl sets the URL to pull data from and the interval in milliseconds
+// WithDataUpdateUrl sets a custom URL to download the data file from
 func WithDataUpdateUrl(urlStr string) EngineOptions {
 	return func(cfg *Engine) error {
 		_, err := url.ParseRequestURI(urlStr)
@@ -130,7 +150,7 @@ func WithDataUpdateUrl(urlStr string) EngineOptions {
 	}
 }
 
-// WithMaxRetries sets the maximum number of retries to pull the data file
+// WithMaxRetries sets the maximum number of retries to pull the data file if request fails
 func WithMaxRetries(retries int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.maxRetries = retries
@@ -166,10 +186,8 @@ func WithCustomLogger(logger LogWriter) EngineOptions {
 	}
 }
 
-// WithFileWatch enables or disables file watching
-// in case 3rd party updates the data file on file system
-// engine will automatically reload the data file
-// default is true
+// WithFileWatch enables or disables file watching in case 3rd party updates the data file
+// engine will automatically reload the data file.  Default is true
 func WithFileWatch(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isFileWatcherEnabled = enabled
@@ -178,8 +196,8 @@ func WithFileWatch(enabled bool) EngineOptions {
 }
 
 // WithUpdateOnStart enables or disables update on start
+// if enabled, engine will pull the data file from the distributor (or custom URL) once initialized
 // default is false
-// if enabled, engine will pull the data file from the distributor on start of the engine
 func WithUpdateOnStart(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isUpdateOnStartEnabled = enabled
@@ -190,9 +208,8 @@ func WithUpdateOnStart(enabled bool) EngineOptions {
 
 // WithAutoUpdate enables or disables auto update
 // default is true
-// if enabled, engine will automatically pull the data file from the distributor
-// if disabled, engine will not pull the data file from the distributor
-// options like WithDataUpdateUrl, WithLicenseKey will be ignored since auto update is disabled
+// if enabled, engine will automatically pull the data file from the distributor or custom URL
+// if disabled options like WithDataUpdateUrl, WithLicenseKey will be ignored
 func WithAutoUpdate(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isAutoUpdateEnabled = enabled
@@ -203,9 +220,9 @@ func WithAutoUpdate(enabled bool) EngineOptions {
 
 // WithTempDataCopy enables or disables creating a temp copy of the data file
 // default is true
-// if enabled, engine will create a temp copy of the data file and use it to initialize the manager
+// if enabled, engine will create a temp copy of the data file and use it for detection rather than original data file
 // if disabled, engine will use the original data file to initialize the manager
-// this is useful when 3rd party updates the data file on file system
+// this is useful when 3rd party updates the data file on the file system
 func WithTempDataCopy(enabled bool) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.isCreateTempDataCopyEnabled = enabled
@@ -214,9 +231,9 @@ func WithTempDataCopy(enabled bool) EngineOptions {
 	}
 }
 
-// SetTempDataDir sets the directory to store the temp data file
-// default is current directory
-func SetTempDataDir(dir string) EngineOptions {
+// WithTempDataDir sets the directory to store the temp data file
+// default is system temp directory
+func WithTempDataDir(dir string) EngineOptions {
 	return func(cfg *Engine) error {
 		dirFileInfo, err := os.Stat(dir)
 		if err != nil {
@@ -235,7 +252,7 @@ func SetTempDataDir(dir string) EngineOptions {
 // WithRandomization sets the randomization time in seconds
 // default is 10 minutes
 // if set, when scheduling the file pulling, it will add randomization time to the interval
-// this is useful to avoid all engines pulling the data file at the same time in case of multiple engines/instances
+// this is useful to avoid multiple engines pulling the data file at the same time in case of multiple engines/instances
 func WithRandomization(seconds int) EngineOptions {
 	return func(cfg *Engine) error {
 		cfg.randomization = seconds * 1000
@@ -243,25 +260,37 @@ func WithRandomization(seconds int) EngineOptions {
 	}
 }
 
-func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
+// WithProperties sets properties that the engine retrieves from the data file for each device detection result instance
+// default is "" which will include all possible properties
+func WithProperties(properties []string) EngineOptions {
+	return func(cfg *Engine) error {
+		if properties != nil {
+			cfg.managerProperties = strings.Join(properties, ",")
+		}
+		return nil
+	}
+}
+
+// New creates an instance of the on-premise device detection engine.  WithDataFile must be provided
+// to specify the path to the data file, otherwise initialization will fail
+func New(opts ...EngineOptions) (*Engine, error) {
 	engine := &Engine{
 		logger: logWrapper{
 			logger:  DefaultLogger,
 			enabled: true,
 		},
-		config:      config,
-		stopCh:      make(chan *sync.WaitGroup),
-		fileSynced:  false,
-		dataFileUrl: defaultDataFileUrl,
-		//default 15 minutes
-		dataFilePullEveryMs:         30 * 60 * 1000,
+		config:                      nil,
+		stopCh:                      make(chan *sync.WaitGroup),
+		fileSynced:                  false,
+		dataFileUrl:                 defaultDataFileUrl,
+		dataFilePullEveryMs:         30 * 60 * 1000, // default 30 minutes
 		isFileWatcherEnabled:        true,
 		isUpdateOnStartEnabled:      false,
 		isAutoUpdateEnabled:         true,
 		isCreateTempDataCopyEnabled: true,
 		tempDataDir:                 "",
-		//default 10 minutes
-		randomization: 10 * 60 * 1000,
+		randomization:               10 * 60 * 1000, // default 10 minutes
+		managerProperties:           "",
 	}
 
 	for _, opt := range opts {
@@ -308,14 +337,20 @@ func New(config *dd.ConfigHash, opts ...EngineOptions) (*Engine, error) {
 	return engine, nil
 }
 
+// Evidence struct encapsulates the evidence provided as input to the Process function
+// Evidence is usually an HTTP header, thus Prefix would be dd.HttpHeaderString,
+// but can also be a query param (dd.HttpEvidenceQuery) or a cookie (dd.HttpEvidenceCookie)
 type Evidence struct {
 	Prefix dd.EvidencePrefix
 	Key    string
 	Value  string
 }
 
-func (e *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
-	evidenceHash, err := mapEvidence(evidences)
+// Process detects the device from the provided evidence list
+// returns the dd.ResultsHash object from which various device properties
+// are retrieved
+func (e *Engine) Process(evidenceList []Evidence) (*dd.ResultsHash, error) {
+	evidenceHash, err := mapEvidence(evidenceList)
 	if err != nil {
 		return nil, err
 	}
@@ -330,10 +365,10 @@ func (e *Engine) Process(evidences []Evidence) (*dd.ResultsHash, error) {
 	return results, nil
 }
 
-func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
-	evidenceHash := dd.NewEvidenceHash(uint32(len(evidences)))
+func mapEvidence(evidenceList []Evidence) (*dd.Evidence, error) {
+	evidenceHash := dd.NewEvidenceHash(uint32(len(evidenceList)))
 
-	for _, evidence := range evidences {
+	for _, evidence := range evidenceList {
 		err := evidenceHash.Add(evidence.Prefix, evidence.Key, evidence.Value)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add evidence: %w", err)
@@ -343,6 +378,8 @@ func mapEvidence(evidences []Evidence) (*dd.Evidence, error) {
 	return evidenceHash, nil
 }
 
+// Stop has to be called to free all the resources of the engine
+// before the instance goes out of scope
 func (e *Engine) Stop() {
 	num := 0
 	if e.isAutoUpdateEnabled && e.filePullerStarted {
@@ -368,7 +405,7 @@ func (e *Engine) Stop() {
 	if e.manager != nil {
 		e.manager.Free()
 	} else {
-		e.logger.Printf("manager is nil")
+		e.logger.Printf("stopping engine, manager is nil")
 	}
 
 	if e.isCreateTempDataCopyEnabled {
@@ -377,6 +414,7 @@ func (e *Engine) Stop() {
 	}
 }
 
+// GetHttpHeaderKeys returns all HTTP headers that can be used as evidence for device detection
 func (e *Engine) GetHttpHeaderKeys() []dd.EvidenceKey {
 	return e.manager.HttpHeaderKeys
 }
@@ -415,7 +453,7 @@ func (e *Engine) appendProduct() error {
 
 func (e *Engine) validateAndAppendUrlParams() error {
 	if e.isDefaultDataFileUrl() && !e.hasDefaultDistributorParams() && e.isAutoUpdateEnabled {
-		return ErrLicenceKeyAndProductRequired
+		return ErrLicenseKeyRequired
 	} else if e.isDefaultDataFileUrl() && e.isAutoUpdateEnabled {
 		err := e.appendLicenceKey()
 		if err != nil {
@@ -493,7 +531,10 @@ func (e *Engine) reloadManager(filePath string) error {
 	if e.manager == nil {
 		e.manager = dd.NewResourceManager()
 		// init manager from file
-		err := dd.InitManagerFromFile(e.manager, *e.config, "", filePath)
+		if e.config == nil {
+			e.config = dd.NewConfigHash(dd.Balanced)
+		}
+		err := dd.InitManagerFromFile(e.manager, *e.config, e.managerProperties, filePath)
 
 		if err != nil {
 			return fmt.Errorf("failed to init manager from file: %w", err)

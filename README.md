@@ -56,8 +56,9 @@ go env -w CGO_ENABLED=1
 
 This module name `device-detection-go` at path `github.com/51Degrees/device-detection-go/v4`
 
-This Go Lite version contains only one single package:
-- `dd`
+This Go Lite version contains the following packages:
+- `dd` - a lower level API wrapping the C device detection library
+- `onpremise` - a higher level Engine API providing device detection and [automatic data file updates](https://51degrees.com/documentation/4.4/_features__automatic_datafile_updates.html)
 
 ## Build and Usage
 
@@ -77,12 +78,12 @@ The amalgamation is produced automatically and regularly by the [Nightly Package
 
 ## Test
 
-Unit tests can be run with `go test` within `dd` directory.
+Unit tests can be run with `go test ./...` from the root dir.
 
 ## APIs
 
 To view APIs and their descriptions, users can use `go doc` in the package directory.
-- First navigate to folder `dd`.
+- First navigate to `dd` or `onpremise` dir.
 - Then run the below to display all APIs, structures and their descriptions.
 ```
 go doc -all
