@@ -378,8 +378,8 @@ func mapEvidence(evidenceList []Evidence) (*dd.Evidence, error) {
 }
 
 // Create a new raw ResultsHash object.
-func (e *Engine) NewResultsHash(capacity uint32, overridesCapacity uint32) *dd.ResultsHash {
-	return dd.NewResultsHash(e.manager, capacity, overridesCapacity)
+func (e *Engine) NewResultsHash(evidenceCapacity uint32, overridesCapacity uint32) *dd.ResultsHash {
+	return dd.NewResultsHash(e.manager, evidenceCapacity, overridesCapacity)
 }
 
 // Stop has to be called to free all the resources of the engine
